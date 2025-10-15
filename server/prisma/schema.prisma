@@ -24,6 +24,7 @@ model Admin {
 model Project {
   id         String   @id @default(uuid())
   userEmail  String
+  name       String
   user       User     @relation(fields: [userEmail], references: [email])
   status     String
   forms      StaffRecruitmentForm[]
@@ -38,8 +39,6 @@ model StaffRecruitmentForm {
   projectDuration     String
   selectionCommittee  Json
   status              FormStatus @default(PENDING)
-  hodSignature        String?
-  rndDeanSignature    String?
   submittedAt         DateTime  @default(now())
   approvedAt          DateTime?
 }
