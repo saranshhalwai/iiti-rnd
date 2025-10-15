@@ -11,7 +11,7 @@ const ProjectList = () => {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const res = await fetch(`${api}/api/projects/user-projects`, {
+        const res = await fetch(`${api}/api/project/user-projects`, {
           credentials: "include"
         })
         const data = await res.json()
@@ -45,7 +45,7 @@ const ProjectList = () => {
               }`}
             >
               <div>
-                <p className="font-semibold text-lg text-gray-800">{proj.name}</p>
+                <p className="font-semibold text-lg text-gray-800">{proj.title}</p>
                 <p
                   className={`text-sm mt-1 ${
                     proj.status === "Pending"

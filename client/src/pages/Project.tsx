@@ -1,140 +1,92 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useParams, useNavigate } from "react-router-dom"
+import StaffRecruitmentForm from "../components/Project/StaffRecruitmentForm"
 import { api } from "../lib/api"
 
-const ProjectForm = () => {
-  const [projectTitle, setProjectTitle] = useState("")
-  const [fundingAgency, setFundingAgency] = useState("")
-  const [projectDuration, setProjectDuration] = useState("")
-  const [committee, setCommittee] = useState<string[]>([""])
-  const [loading, setLoading] = useState(false)
+const tabs = [
+  { id: 1, title: "Staff Recruitment" },
+  { id: 2, title: "Progress Report" },
+  { id: 3, title: "Completion" },
+]
 
-  const handleCommitteeChange = (index: number, value: string) => {
-    const newCommittee = [...committee]
-    newCommittee[index] = value
-    setCommittee(newCommittee)
+export default function Project() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState(1)
+  type ProjectType = {
+    id: string
+    title: string
+    fundingAgency?: string
+    duration?: string
+    status?: string
   }
 
-  const addCommitteeMember = () => setCommittee([...committee, ""])
-  const removeCommitteeMember = (index: number) =>
-    setCommittee(committee.filter((_, i) => i !== index))
+  const [project, setProject] = useState<ProjectType | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    try {
-      const res = await fetch(`${api}/api/project/form`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectTitle,
-          fundingAgency,
-          projectDuration,
-          selectionCommittee: committee.filter(c => c.trim() !== ""),
-        }),
-      })
-      const data = await res.json()
-      if (data.success) alert("Form submitted successfully!")
-      else alert("Submission failed")
-    } catch (err) {
-      console.error(err)
-      alert("Something went wrong")
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    const fetchProject = async () => {
+      try {
+        const res = await fetch(`${api}/api/project/${id}`, {
+          credentials: "include",
+        });
+        console.log(res)
+        if (res.status === 403) {
+          navigate("/unauthorized")
+          return
+        }
+        const data = await res.json()
+        setProject(data)
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
     }
-  }
+    fetchProject()
+  }, [id, navigate])
+
+  if (loading) return <div className="text-center text-gray-500 mt-10">Loading...</div>
+
+  if (!project) return <div className="text-center text-red-500 mt-10">Project not found</div>
 
   return (
-    <div className="max-w-3xl mx-auto p-8 bg-white/90 backdrop-blur-md rounded-3xl shadow-lg mt-8">
-      <h2 className="text-2xl font-bold text-blue-800 mb-6 text-center">
-        Staff Recruitment Form
-      </h2>
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label className="block text-gray-700 font-medium mb-2">
-            Project Title
-          </label>
-          <input
-            type="text"
-            value={projectTitle}
-            onChange={(e) => setProjectTitle(e.target.value)}
-            required
-            className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
-            placeholder="Enter project title"
-          />
+    <div className="min-h-screen bg-white text-gray-900 p-8">
+      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 mb-8 shadow-sm">
+        <h1 className="text-2xl font-bold text-blue-700 mb-2">{project.title}</h1>
+        <div className="text-sm text-gray-700 space-y-1">
+          <p><strong>Funding Agency:</strong> {project.fundingAgency || "N/A"}</p>
+          <p><strong>Duration:</strong> {project.duration || "N/A"}</p>
+          <p><strong>Status:</strong> {project.status}</p>
         </div>
+      </div>
 
-        <div>
-          <label className="block text-gray-700 font-medium mb-2">
-            Funding Agency
-          </label>
-          <input
-            type="text"
-            value={fundingAgency}
-            onChange={(e) => setFundingAgency(e.target.value)}
-            required
-            className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
-            placeholder="Enter funding agency"
-          />
-        </div>
-
-        <div>
-          <label className="block text-gray-700 font-medium mb-2">
-            Project Duration
-          </label>
-          <input
-            type="text"
-            value={projectDuration}
-            onChange={(e) => setProjectDuration(e.target.value)}
-            required
-            className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
-            placeholder="E.g., 6 months / 1 year"
-          />
-        </div>
-
-        <div>
-          <label className="block text-gray-700 font-medium mb-2">
-            Selection Committee
-          </label>
-          {committee.map((member, index) => (
-            <div key={index} className="flex items-center space-x-2 mb-2">
-              <input
-                type="text"
-                value={member}
-                onChange={(e) => handleCommitteeChange(index, e.target.value)}
-                required
-                placeholder={`Member ${index + 1}`}
-                className="flex-1 px-4 py-2 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
-              />
-              {committee.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeCommitteeMember(index)}
-                  className="text-red-500 font-bold text-lg hover:text-red-700 transition"
-                >
-                  &times;
-                </button>
-              )}
-            </div>
-          ))}
+      <div className="flex justify-around border-b border-gray-200 mb-6 w-full">
+        {tabs.map(tab => (
           <button
-            type="button"
-            onClick={addCommitteeMember}
-            className="text-blue-600 font-medium hover:text-blue-800 transition"
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`pb-3 px-4 text-sm font-medium transition-all ${
+              activeTab === tab.id
+                ? "text-blue-600 border-b-2 border-blue-600"
+                : "text-gray-500 hover:text-blue-600"
+            }`}
           >
-            + Add Member
+            <div className="flex flex-col items-center">
+            <span className="w-8 h-8 flex items-center justify-center text-lg border border-blue-200 bg-blue-800 text-white rounded-full">
+            {tab.id}
+            </span>
+              <span className="text-sm">{tab.title}</span>
+            </div>
           </button>
-        </div>
+        ))}
+      </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-all duration-200 shadow-lg"
-        >
-          {loading ? "Submitting..." : "Submit"}
-        </button>
-      </form>
+      <div className="mt-6">
+        {activeTab === 1 && <StaffRecruitmentForm projectId={String(project.id)} />}
+        {activeTab === 2 && <div className="text-gray-500 text-center">Progress report coming soon</div>}
+        {activeTab === 3 && <div className="text-gray-500 text-center">Completion stage coming soon</div>}
+      </div>
     </div>
   )
 }
-
-export default ProjectForm

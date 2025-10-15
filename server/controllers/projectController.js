@@ -1,7 +1,6 @@
 import express from "express"
 import jwt from "jsonwebtoken"
 import { PrismaClient } from "@prisma/client"
-
 const prisma = new PrismaClient()
 const router = express.Router()
 
@@ -21,5 +20,66 @@ router.get("/user-projects", async (req, res) => {
     res.status(403).json({ success: false, message: "Invalid token" })
   }
 })
+
+const verifyUser = (req, res, next) => {
+  const token = req.cookies.acKey
+  if (!token) return res.status(401).json({ success: false, message: "No token" })
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    req.user = decoded
+    next()
+  } catch (err) {
+    res.status(403).json({ success: false, message: "Invalid token" })
+  }
+}
+
+router.get("/:id", async (req, res) => {
+  const userEmail = req.user.email
+  if(!userEmail) return res.status(403).json({ message: "Unauthorized" })
+  const { id } = req.params
+
+  const project = await prisma.project.findUnique({
+    where: { id },
+    include: { user: true },
+  })
+
+  if (!project || project.userEmail !== userEmail)
+    return res.status(403).json({ message: "Unauthorized" })
+  res.json(project)
+})
+
+router.post("/:id/staffRecruitmentForm", async (req, res) => {
+  try {
+    const { id } = req.params
+    const { members } = req.body
+    const userEmail = req.user?.email
+
+    if (!userEmail) {
+      return res.status(401).json({ message: "Unauthorized" })
+    }
+
+    const project = await prisma.project.findUnique({
+      where: { id },
+    })
+
+    if (!project || project.userEmail !== userEmail) {
+      return res.status(403).json({ message: "You are not allowed to submit this form" })
+    }
+
+    await prisma.staffRecruitmentForm.create({
+      data: {
+        projectId: id,
+        selectionCommittee: members,
+        status: "PENDING",
+      },
+    })
+    res.json({ message: "Form submitted successfully!" })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: "Server error" })
+  }
+})
+
 
 export default router

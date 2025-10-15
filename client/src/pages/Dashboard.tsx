@@ -1,31 +1,24 @@
 import { useEffect, useState } from "react"
 import ProjectList from "../components/Dashboard/ProjectList"
 import { api } from "../lib/api"
+import Navbar from "../components/Navbar"
 
 const Dashboard = () => {
   const [user, setUser] = useState<any>(null)
   const [activeTab, setActiveTab] = useState("Projects")
 
-  useEffect(() => {
-    fetch(`${api}/api/auth/user`, { credentials: "include" })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) setUser(data.user)
-        else window.location.href = "/"
-      })
-  }, [])
-
   const tabs = ["Projects", "Might be anything", "Analytics", "Settings"]
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
+      <Navbar/>
       <div className="bg-white border-b shadow-inner flex justify-center">
         <div className="flex gap-8 w-full">
           {tabs.map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-4 text-center font-medium rounded-t-lg transition-all duration-200 ${
+              className={`flex-1 py-3 text-center font-medium rounded-t-lg transition-all duration-200 ${
                 activeTab === tab
                   ? "text-blue-600 border-b-4 border-blue-600 bg-blue-50"
                   : "text-gray-600 hover:text-blue-600 hover:bg-gray-50"

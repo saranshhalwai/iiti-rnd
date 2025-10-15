@@ -13,7 +13,6 @@ const redirectUri = `${server}/api/auth/google/callback`
 router.get("/verify", (req, res) => {
   const token = req.cookies.acKey
   if (!token) return res.status(401).json({ success: false, message: "No token" })
-
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
     res.json({ success: true, user: decoded })
@@ -66,7 +65,7 @@ router.get("/google/callback", async (req, res) => {
     create: { email, name: payload.name || "Unnamed" }
   })
 
-  const jwtToken = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: "7d" })
+  const jwtToken = jwt.sign({ id: user.id, email: user.email, name: user.name }, process.env.JWT_SECRET, { expiresIn: "7d" })
   res.cookie("acKey", jwtToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

@@ -6,7 +6,7 @@ import Dashboard from "./pages/Dashboard"
 import ProtectedRoute from "./components/ProtectedRoute"
 import ProtectedAdminRoute from "./components/ProtectedAdminRoute"
 import AdminPanel from "./pages/AdminPanel"
-import ProjectForm from "./pages/Project"
+import Project from "./pages/Project"
 
 function App() {
   return (
@@ -20,10 +20,10 @@ function App() {
           element={
             <ProtectedAdminRoute role="admin">
               <AdminPanel/>
-            // </ProtectedAdminRoute>
+            </ProtectedAdminRoute>
           }
         />
-        <Route path="/project" element={<ProjectForm/>}/>
+        <Route path="/project/:id" element={<Project/>} />
       </Routes>
     </BrowserRouter>
   )
