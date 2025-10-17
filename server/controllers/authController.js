@@ -6,8 +6,6 @@ const prisma = new PrismaClient()
 const router = express.Router()
 import { client as clientUrl, server } from "../lib/client.js"
 
-const clientId = process.env.GOOGLE_CLIENT_ID
-const clientSecret = process.env.GOOGLE_CLIENT_SECRET
 const redirectUri = `${server}/api/auth/google/callback`
 
 router.get("/verify", (req, res) => {
@@ -22,12 +20,14 @@ router.get("/verify", (req, res) => {
 })
 
 router.get("/google/redirect", (req, res) => {
-  const scope = [
+    console.log(process.env.GOOGLE_CLIENT_ID)
+    console.log(process.env.GOOGLE_CLIENT_ID)
+    const scope = [
     "openid",
     "email",
     "profile"
   ].join(" ")
-  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&prompt=select_account`
+  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.GOOGLE_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&prompt=select_account`
   res.redirect(url)
 })
 
@@ -40,8 +40,8 @@ router.get("/google/callback", async (req, res) => {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       code,
-      client_id: clientId,
-      client_secret: clientSecret,
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
       redirect_uri: redirectUri,
       grant_type: "authorization_code"
     })
@@ -49,10 +49,10 @@ router.get("/google/callback", async (req, res) => {
   const tokens = await tokenRes.json()
   const idToken = tokens.id_token
 
-  const client = new OAuth2Client(clientId)
+  const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
   const ticket = await client.verifyIdToken({
     idToken,
-    audience: clientId
+    audience: process.env.GOOGLE_CLIENT_ID
   })
   const payload = ticket.getPayload()
   const email = payload.email
