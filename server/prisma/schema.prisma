@@ -27,7 +27,7 @@ model Project {
   title           String
   fundingAgency   String
   projectDuration String
-  status          String
+  status          ProjectStatus @default(HOD_PENDING)
   user   User                    @relation(fields: [userEmail], references: [email])
   forms  StaffRecruitmentForm[]
 }
@@ -46,4 +46,13 @@ enum FormStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum ProjectStatus {
+  HOD_CONFIRMED
+  DEAN_CONFIRMED
+  HOD_PENDING
+  DEAN_PENDING
+  HOD_REJECTED
+  DEAN_REJECTED
 }
