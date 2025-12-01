@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import StaffRecruitmentForm from "../components/Project/StaffRecruitmentForm"
+import StaffRecruitmentForm from "../components/Project/StaffRecruitmentForm/StaffRecruitmentForm"
 import { api } from "../lib/api"
 
 const tabs = [

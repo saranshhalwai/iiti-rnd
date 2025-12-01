@@ -128,4 +128,38 @@ router.post("/add", async (req, res) => {
   }
 });
 
+router.get("/:id/staffRecruitmentForm", verifyUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userEmail = req.user.email;
+
+    const project = await prisma.project.findUnique({
+      where: { id },
+    });
+
+    if (!project || project.userEmail !== userEmail) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    // FIXED: use findFirst, NOT findUnique
+    const form = await prisma.staffRecruitmentForm.findFirst({
+      where: { projectId: id },
+    });
+
+    if (!form) {
+      return res.status(404).json({ message: "Form not submitted yet" });
+    }
+
+    res.json({
+      members: form.selectionCommittee,
+      status: form.status,
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
 export default router;

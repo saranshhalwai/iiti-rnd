@@ -2,6 +2,7 @@ import express from "express";
 import { PrismaClient } from "@prisma/client";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
+import { HOD_EMAILS } from "../lib/hodEmails.js";
 
 const mailRouter = express.Router();
 const prisma = new PrismaClient();
@@ -107,48 +108,55 @@ const createDeanNotificationEmail = (project) => {
 };
 
 mailRouter.post("/hod-confirmation", async (req, res) => {
-  const { hodEmail, subject, projId } = req.body;
+  const { dept, subject, projId } = req.body;
 
-  if (!hodEmail || !subject || !projId) {
+  if (!dept || !subject || !projId) {
     return res.status(400).json({
-      error: "Missing required fields: hodEmail, subject, or projId.",
+      error: "Missing required fields: dept, subject, or projId.",
     });
   }
-  const projectDetails = await prisma.project.findUnique({
-    where: { id: projId },
-  });
-  if (!projectDetails)
-    return res
-      .status(400)
-      .json({ error: "Project with given ID does not exist." });
 
-  const confirmationDetails = projectDetails;
-  const decisionBaseUrl = "http://localhost:5000";
-  const acceptLink = `${decisionBaseUrl}/api/mail/hod-decision/accept?projId=${projId}`;
-  const rejectLink = `${decisionBaseUrl}/api/mail/hod-decision/reject?projId=${projId}`;
+  // Pick correct HOD email from department
+  const hodEmail = HOD_EMAILS[dept.toLowerCase()] || HOD_EMAILS.default;
 
-  const mailOptions = {
-    from: `"Department System" <${transporter.options.auth.user}>`,
-    to: hodEmail,
-    subject: subject,
-    text: `Action Required: Please visit the links below to approve or reject project (ID: ${projId}).\n\nDetails:\n${JSON.stringify(
-      confirmationDetails
-    )}\n\nAccept: ${acceptLink}\nReject: ${rejectLink}`,
-    html: `
-      <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
-        <div style="background-color: #10B981; padding: 20px; color: white; text-align: center; border-top-left-radius: 12px; border-top-right-radius: 12px;">
+  try {
+    const projectDetails = await prisma.project.findUnique({
+      where: { id: projId },
+    });
+
+    if (!projectDetails) {
+      return res
+        .status(400)
+        .json({ error: "Project with given ID does not exist." });
+    }
+
+    const confirmationDetails = projectDetails;
+
+    const decisionBaseUrl = "http://localhost:5000";
+    const acceptLink = `${decisionBaseUrl}/api/mail/hod-decision/accept?projId=${projId}`;
+    const rejectLink = `${decisionBaseUrl}/api/mail/hod-decision/reject?projId=${projId}`;
+
+    const mailOptions = {
+      from: `"Department System" <${transporter.options.auth.user}>`,
+      to: hodEmail,
+      subject,
+      text: `Action Required: Please visit the links below to approve or reject project (ID: ${projId}).\n\nDetails:\n${JSON.stringify(
+        confirmationDetails
+      )}\n\nAccept: ${acceptLink}\nReject: ${rejectLink}`,
+      html: `
+        <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
+          <div style="background-color: #10B981; padding: 20px; color: white; text-align: center; border-top-left-radius: 12px; border-top-right-radius: 12px;">
             <h1 style="margin: 0; font-size: 24px; font-weight: bold;">&#9888; Action Required: Project Decision</h1>
-        </div>
+          </div>
 
-        <div style="padding: 25px 25px 15px 25px; line-height: 1.6; color: #333;">
+          <div style="padding: 25px 25px 15px 25px; line-height: 1.6; color: #333;">
             <p style="margin-bottom: 20px;">Dear Head of Department,</p>
-            
             <p>A new project funding request has been submitted and requires your approval. Please review the details below and make your decision.</p>
-            
+
             <hr style="border: 0; border-top: 1px solid #f0f0f0; margin: 25px 0;">
-            
+
             <h3 style="margin-top: 0; color: #10B981; font-size: 18px;">Project Summary (ID: ${projId})</h3>
-            
+
             <ul style="list-style: none; padding: 15px 20px; margin: 0 0 20px 0; background-color: #f0fdf4; border-radius: 8px; border-left: 5px solid #34D399;">
               <li style="margin-bottom: 8px;"><strong>Title:</strong> ${confirmationDetails.title}</li>
               <li style="margin-bottom: 8px;"><strong>Funding Agency:</strong> ${confirmationDetails.fundingAgency}</li>
@@ -156,52 +164,55 @@ mailRouter.post("/hod-confirmation", async (req, res) => {
               <li style="margin-bottom: 8px;"><strong>Submitted By:</strong> ${confirmationDetails.userEmail}</li>
               <li style="margin-bottom: 0;"><strong>Current Status:</strong> <span style="font-weight: bold; color: #065F46;">${confirmationDetails.status}</span></li>
             </ul>
-            
+
             <p style="text-align: center; font-weight: bold; margin-top: 30px;">
-                Click one of the buttons below to record your official decision:
+              Click one of the buttons below to record your official decision:
             </p>
 
             <table width="100%" cellspacing="0" cellpadding="0" style="margin-top: 15px; margin-bottom: 30px;">
               <tr>
                 <td align="center" style="padding-right: 15px;">
-                  <a href="${acceptLink}" target="_blank" style="display: inline-block; padding: 12px 25px; font-size: 16px; color: #ffffff; background-color: #059669; border-radius: 6px; text-decoration: none; font-weight: bold; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); transition: background-color 0.3s;">
-                    &#10003; Accept Project
+                  <a href="${acceptLink}" target="_blank" 
+                    style="display: inline-block; padding: 12px 25px; font-size: 16px; color: #ffffff; background-color: #059669; border-radius: 6px; text-decoration: none; font-weight: bold;">
+                  &#10003; Accept Project
                   </a>
                 </td>
                 <td align="center" style="padding-left: 15px;">
-                  <a href="${rejectLink}" target="_blank" style="display: inline-block; padding: 12px 25px; font-size: 16px; color: #ffffff; background-color: #EF4444; border-radius: 6px; text-decoration: none; font-weight: bold; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); transition: background-color 0.3s;">
-                    &#10007; Reject Project
+                  <a href="${rejectLink}" target="_blank" 
+                    style="display: inline-block; padding: 12px 25px; font-size: 16px; color: #ffffff; background-color: #EF4444; border-radius: 6px; text-decoration: none; font-weight: bold;">
+                  &#10007; Reject Project
                   </a>
                 </td>
               </tr>
             </table>
+          </div>
 
-        </div>
-        
-        <div style="background-color: #f4f4f4; padding: 15px 25px; text-align: center; border-top: 1px solid #e0e0e0; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;">
+          <div style="background-color: #f4f4f4; padding: 15px 25px; text-align: center; border-top: 1px solid #e0e0e0;">
             <p style="font-size: 0.8em; color: #777; margin: 0;">
-                By clicking, you submit your decision directly to the system. If you have questions, please contact the project submitter (${confirmationDetails.userEmail}).
+              By clicking, you submit your decision directly to the system.  
+              If you have questions, contact the project submitter (${confirmationDetails.userEmail}).
             </p>
+          </div>
         </div>
-    </div>
-    `,
-  };
+      `,
+    };
 
-  try {
     const info = await transporter.sendMail(mailOptions);
-    console.log("Message sent: %s", info.messageId);
+    console.log("Message sent:", info.messageId);
 
     res.status(202).json({
-      message: "Confirmation email sent successfully with decision links.",
+      message: `Email sent to HOD (${hodEmail})`,
       messageId: info.messageId,
       acceptLinkExample: acceptLink,
       rejectLinkExample: rejectLink,
     });
+
   } catch (error) {
     console.error("Error sending HOD confirmation email:", error);
     res.status(500).json({ error: "Failed to send email." });
   }
 });
+
 
 mailRouter.get("/hod-decision/accept", async (req, res) => {
   const projId = req.query.projId;

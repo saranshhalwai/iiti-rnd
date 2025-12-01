@@ -18,9 +18,9 @@ function App() {
         <Route
           path="/admin/panel"
           element={
-            <ProtectedAdminRoute role="admin">
+            // <ProtectedAdminRoute role="admin">
               <AdminPanel/>
-            </ProtectedAdminRoute>
+            // </ProtectedAdminRoute>
           }
         />
         <Route path="/project/:id" element={<Project/>} />
