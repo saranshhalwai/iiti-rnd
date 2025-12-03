@@ -3,12 +3,13 @@ import { FiPlus, FiTrash2 } from "react-icons/fi";
 
 interface Props {
   members: string[];
+  chair: string;
   setMembers: (m: string[]) => void;
   onSubmit: () => void;
+  setChair: (chair: string) => void;
 }
 
-export default function StageForm({ members, setMembers, onSubmit }: Props) {
-  const [chair, setChair] = useState("");
+export default function StageForm({ members, setMembers, onSubmit, chair, setChair }: Props) {
   const [showConfirm, setShowConfirm] = useState(false);
 
   const updateMember = (i: number, val: string) => {
@@ -24,23 +25,18 @@ export default function StageForm({ members, setMembers, onSubmit }: Props) {
   return (
     <div className="bg-white shadow-lg rounded-2xl p-6 space-y-6">
       <h2 className="text-xl font-semibold text-blue-700">Staff Recruitment Committee</h2>
-
-      {/* CHAIR INPUT */}
       <div>
-        <label className="block font-medium text-gray-700 mb-1">Chairperson</label>
+        <label className="block font-semibold text-gray-700 mb-1">Chairperson</label>
         <input
           type="text"
           value={chair}
           onChange={(e) => setChair(e.target.value)}
           placeholder="Enter Chairperson Name"
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-gray-300 font-bold rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
         />
       </div>
-
-      {/* MEMBERS */}
       <div className="space-y-3">
-        <label className="block font-medium text-gray-700">Committee Members</label>
-
+        <label className="block font-semibold text-gray-700">Committee Members</label>
         {members.map((m, i) => (
           <div key={i} className="flex items-center gap-2">
             <input
@@ -48,7 +44,7 @@ export default function StageForm({ members, setMembers, onSubmit }: Props) {
               value={m}
               onChange={(e) => updateMember(i, e.target.value)}
               placeholder={`Member ${i + 1}`}
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+              className="flex-1 border border-gray-300 font-semibold rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
             />
             {members.length > 1 && (
               <button
@@ -71,40 +67,51 @@ export default function StageForm({ members, setMembers, onSubmit }: Props) {
         </button>
       </div>
 
-      {/* Submit Button */}
       <button
         onClick={() => setShowConfirm(true)}
-        className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold"
+        className="max-w-md w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold"
       >
         Review & Submit
       </button>
 
-      {/* CONFIRMATION MODAL */}
       {showConfirm && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-2xl shadow-xl w-[400px] space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800">Confirm Submission</h3>
+          <div className="bg-white p-6 rounded-2xl shadow-xl w-[420px] space-y-5">
+            <h3 className="text-xl font-semibold text-gray-800">Review Committee Details</h3>
 
-            <p className="text-gray-600 text-sm">
-              Please confirm you want to submit the committee details.
-            </p>
+            <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+              <div>
+                <p className="text-gray-500 text-sm font-medium">Chairperson</p>
+                <p className="text-blue-700 font-semibold text-base">{chair || "Not Provided"}</p>
+              </div>
 
+              <div>
+                <p className="text-gray-500 text-sm font-medium">Members</p>
+                <ul className="pl-4 list-disc text-gray-700 font-medium">
+                  {members.map((m, i) => (
+                    <li key={i}>{m || "Unnamed Member"}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
             <button
               onClick={() => {
                 onSubmit();
                 setShowConfirm(false);
               }}
-              className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700"
+              className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700"
             >
-              Submit
+              Confirm & Submit
             </button>
 
             <button
               onClick={() => setShowConfirm(false)}
-              className="w-full bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300"
+              className="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg hover:bg-gray-300"
             >
               Cancel
             </button>
+          </div>
           </div>
         </div>
       )}

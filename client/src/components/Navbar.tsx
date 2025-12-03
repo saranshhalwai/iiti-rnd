@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom"
 import { useEffect, useState } from "react"
-import { api } from "../lib/api"
+import { api, apiLink } from "../lib/api"
 
 const Navbar = () => {
   const navigate = useNavigate()
@@ -9,7 +9,7 @@ const Navbar = () => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const res = await fetch(`${api}/api/auth/verify`, {
+        const res = await fetch(`${apiLink}/api/auth/verify`, {
           credentials: "include",
         })
 

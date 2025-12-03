@@ -22,12 +22,12 @@ model Admin {
 }
 
 model Project {
-  id              String                 @id @default(uuid())
+  id              String @id   @default(dbgenerated("gen_random_uuid()"))
   userEmail       String
   title           String
   fundingAgency   String
   projectDuration String
-  status          ProjectStatus @default(HOD_PENDING)
+  status          ProjectStatus @default(SAVED)
   user   User                    @relation(fields: [userEmail], references: [email])
   forms  StaffRecruitmentForm[]
 }
@@ -36,7 +36,7 @@ model StaffRecruitmentForm {
   id                 String      @id @default(uuid())
   projectId          String?
   selectionCommittee Json
-  status             FormStatus  @default(PENDING)
+  status             FormStatus  @default(SAVED)
   submittedAt        DateTime    @default(now())
   approvedAt         DateTime?
   project Project? @relation(fields: [projectId], references: [id])
@@ -44,15 +44,20 @@ model StaffRecruitmentForm {
 
 enum FormStatus {
   PENDING
+  SAVED
+  PENDING_HOD
+  REJECTED_HOD
+  PENDING_DEAN
+  REJECTED_DEAN
   APPROVED
-  REJECTED
 }
 
 enum ProjectStatus {
-  HOD_CONFIRMED
-  DEAN_CONFIRMED
-  HOD_PENDING
-  DEAN_PENDING
-  HOD_REJECTED
-  DEAN_REJECTED
+  PENDING
+  SAVED
+  PENDING_HOD
+  REJECTED_HOD
+  PENDING_DEAN
+  REJECTED_DEAN
+  APPROVED
 }

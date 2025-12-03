@@ -1,128 +1,141 @@
 import { useState, useEffect } from "react";
 import { api } from "../../../lib/api";
+
 import StageForm from "./StageForm";
 import StageUploaded from "./StageUploaded";
 import StagePendingHOD from "./StagePendingHOD";
+import StagePendingDean from "./StagePendingDean";
+import StageApproved from "./StageApproved";
+import StageRejected from "./StageRejected";
 
 interface StaffRecruitmentFormProps {
   projectId: string;
 }
 
+interface CommitteeData {
+  chair: string;
+  members: string[];
+}
+
+type Stage =
+  | "loading"
+  | "form"
+  | "saved"
+  | "pending_hod"
+  | "rejected_hod"
+  | "pending_dean"
+  | "rejected_dean"
+  | "approved";
+
+const mapStatusToStage = (status?: string): Stage => {
+  switch (status) {
+    case "SAVED": return "saved";
+    case "PENDING_HOD": return "pending_hod";
+    case "REJECTED_HOD": return "rejected_hod";
+    case "PENDING_DEAN": return "pending_dean";
+    case "REJECTED_DEAN": return "rejected_dean";
+    case "APPROVED": return "approved";
+    default: return "form";
+  }
+};
+
 export default function StaffRecruitmentForm({ projectId }: StaffRecruitmentFormProps) {
   const [members, setMembers] = useState<string[]>([""]);
-  const [uploadedMembers, setUploadedMembers] = useState<string[]>([]);
-  const [stage, setStage] = useState<"loading" | "form" | "uploaded" | "pending_hod">("loading");
+  const [chair, setChair] = useState("");
+  const [committeeData, setCommitteeData] = useState<CommitteeData | null>(null);
 
-  const [emailSent, setEmailSent] = useState(false);
-  const [emailFailed, setEmailFailed] = useState(false);
+  const [stage, setStage] = useState<Stage>("loading");
+  const [sendingMail, setSendingMail] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
 
-  const department = "cse";
-
-  // ⭐ Normalize backend data
-  const normalize = (data: any) => {
-    return Array.isArray(data.members)
-      ? data.members
-      : data.members?.members || [];
-  };
-
-  // ⭐ Fetch existing form on refresh
   useEffect(() => {
-    const fetchExisting = async () => {
+    const f = async () => {
       try {
-        const res = await fetch(`${api}/api/project/${projectId}/staffRecruitmentForm`, {
-          method: "GET",
-          credentials: "include",
-        });
+        const r = await api.get(`/api/project/${projectId}/staffRecruitmentForm`);
+        const data = r.data;
 
-        if (!res.ok) {
-          setStage("form");
-          return;
-        }
+        const sc = data.selectionCommittee || {};
+        const loadedChair = sc.chair || "";
+        const loadedMembers = Array.isArray(sc.members) ? sc.members : [];
 
-        const data = await res.json();
-        const extracted = normalize(data);
+        const committee = { chair: loadedChair, members: loadedMembers };
+        setCommitteeData(committee);
+        setChair(loadedChair);
+        setMembers(loadedMembers);
 
-        if (extracted.length > 0) {
-          setUploadedMembers(extracted);
+        if (data.reason) setRejectionReason(data.reason);
 
-          if (data.status === "PENDING") {
-            setStage("pending_hod");
-          } else {
-            setStage("uploaded");
-          }
-        } else {
-          setStage("form");
-        }
-
-      } catch (err) {
-        console.error(err);
+        setStage(mapStatusToStage(data.status));
+      } catch {
         setStage("form");
       }
     };
-
-    fetchExisting();
+    f();
   }, [projectId]);
 
-  // ⭐ Trigger HOD mail with retry support
-  const triggerHODMail = async () => {
-    setEmailFailed(false);
+const triggerHOD = async () => {
+  setSendingMail(true);
 
+  try {
+    const r = await api.post(`/api/mail/hod-confirmation`, {
+      dept: "cse",
+      projId: projectId
+    });
+
+    if (r.status === 202) {
+      setSendingMail(false);
+      setStage("pending_hod");
+      return true;
+    }
+
+    setSendingMail(false);
+    return false;
+
+  } catch {
+    setSendingMail(false);
+    return false;
+  }
+};
+
+
+  const triggerDean = async () => {
     try {
-      const res = await fetch(`${api}/api/mail/hod-confirmation`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          dept: department,
-          subject: "HOD Approval Required",
-          projId: projectId,
-        }),
+      const r = await api.post(`/api/mail/dean-confirmation`, {
+        dept: "cse",
+        projId: projectId
       });
 
-      if (res.ok) {
-        setEmailSent(true);
-        setStage("pending_hod");
+      if (r.status === 200) {
+        setStage("pending_dean");
         return true;
-      } else {
-        setEmailFailed(true);
-        return false;
       }
 
-    } catch (err) {
-      console.error(err);
-      setEmailFailed(true);
+      return false;
+    } catch {
       return false;
     }
   };
 
-  // ⭐ Submit members initially
-  const handleSubmitMembers = async () => {
-    try {
-      const res = await fetch(`${api}/api/project/${projectId}/staffRecruitmentForm`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          members,
-          chair: members[0] // optional
-        }),
-      });
+const submitCommittee = async () => {
+  try {
+    const r = await api.post(
+      `/api/project/${projectId}/staffRecruitmentForm`,
+      { chair, members }
+    );
 
-      if (res.ok) {
-        setUploadedMembers(members);
-        setStage("uploaded");
+    if (r.status === 200) {
+      const committee = { chair, members };
+      setCommitteeData(committee);
 
-        const emailOK = await triggerHODMail();
-        if (!emailOK) {
-          // Stay in uploaded stage with retry button
-          setStage("uploaded");
-        }
-      }
+      setStage("saved");
+      setSendingMail(true);
 
-    } catch (err) {
-      console.error(err);
+      const ok = await triggerHOD();
+      if (!ok) setSendingMail(false);
     }
-  };
+  } catch {}
+};
+
 
   if (stage === "loading") {
     return (
@@ -133,26 +146,63 @@ export default function StaffRecruitmentForm({ projectId }: StaffRecruitmentForm
   }
 
   return (
-    <div className="max-w-xl mx-auto space-y-4 bg-blue-50 p-6 rounded-2xl shadow-sm">
-
+    <div className="space-y-4 p-6 rounded-2xl shadow-sm">
       {stage === "form" && (
         <StageForm
+          chair={chair}
           members={members}
           setMembers={setMembers}
-          onSubmit={handleSubmitMembers}
+          setChair={setChair}
+          onSubmit={submitCommittee}
         />
       )}
 
-      {stage === "uploaded" && (
+      {stage === "saved" && committeeData && !sendingMail && (
         <StageUploaded
-          uploaded={uploadedMembers}
-          emailFailed={emailFailed}
-          onRetry={triggerHODMail}
+          uploadedData={committeeData}
+          sendingMail={sendingMail}
+          onRetry={async () => {
+            setSendingMail(true);
+            const ok = await triggerHOD();
+            if (!ok) setSendingMail(false);
+          }}
         />
       )}
 
-      {stage === "pending_hod" && (
-        <StagePendingHOD uploaded={uploadedMembers} emailSent={emailSent} />
+      {stage === "saved" && committeeData && sendingMail && (
+        <StageUploaded
+          uploadedData={committeeData}
+          sendingMail={true}
+          onRetry={() => {}}
+        />
+      )}
+
+      {stage === "pending_hod" && committeeData && (
+        <StagePendingHOD uploadedData={committeeData} />
+      )}
+
+      {stage === "rejected_hod" && committeeData && (
+        <StageRejected
+          level="HOD"
+          uploadedData={committeeData}
+          reason={rejectionReason}
+        />
+      )}
+
+      {stage === "pending_dean" && committeeData && (
+        <StagePendingDean uploadedData={committeeData} />
+      )}
+
+      {stage === "rejected_dean" && committeeData && (
+        <StageRejected
+          level="DEAN"
+          uploadedData={committeeData}
+          reason={rejectionReason}
+        />
+      )}
+
+      {stage === "approved" && committeeData && (
+        <StageApproved uploadedData={committeeData} />
       )}
     </div>
   );

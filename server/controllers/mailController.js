@@ -108,15 +108,14 @@ const createDeanNotificationEmail = (project) => {
 };
 
 mailRouter.post("/hod-confirmation", async (req, res) => {
-  const { dept, subject, projId } = req.body;
+  const { dept, projId } = req.body;
 
-  if (!dept || !subject || !projId) {
+  if (!dept || !projId) {
     return res.status(400).json({
-      error: "Missing required fields: dept, subject, or projId.",
+      error: "Missing required fields: dept or projId.",
     });
   }
 
-  // Pick correct HOD email from department
   const hodEmail = HOD_EMAILS[dept.toLowerCase()] || HOD_EMAILS.default;
 
   try {
@@ -125,9 +124,17 @@ mailRouter.post("/hod-confirmation", async (req, res) => {
     });
 
     if (!projectDetails) {
-      return res
-        .status(400)
-        .json({ error: "Project with given ID does not exist." });
+      return res.status(400).json({ error: "Project with given ID does not exist." });
+    }
+
+    const form = await prisma.staffRecruitmentForm.findFirst({
+      where: { projectId: projId }
+    });
+
+    if (!form) {
+      return res.status(400).json({
+        error: "Selection committee form does not exist for this project."
+      });
     }
 
     const confirmationDetails = projectDetails;
@@ -136,10 +143,10 @@ mailRouter.post("/hod-confirmation", async (req, res) => {
     const acceptLink = `${decisionBaseUrl}/api/mail/hod-decision/accept?projId=${projId}`;
     const rejectLink = `${decisionBaseUrl}/api/mail/hod-decision/reject?projId=${projId}`;
 
-    const mailOptions = {
+  const mailOptions = {
       from: `"Department System" <${transporter.options.auth.user}>`,
       to: hodEmail,
-      subject,
+      subject: `Project Approval Required: Review Project`,
       text: `Action Required: Please visit the links below to approve or reject project (ID: ${projId}).\n\nDetails:\n${JSON.stringify(
         confirmationDetails
       )}\n\nAccept: ${acceptLink}\nReject: ${rejectLink}`,
@@ -198,9 +205,13 @@ mailRouter.post("/hod-confirmation", async (req, res) => {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log("Message sent:", info.messageId);
 
-    res.status(202).json({
+    await prisma.staffRecruitmentForm.update({
+      where: { id: form.id },
+      data: { status: "PENDING_HOD" }
+    });
+
+    return res.status(202).json({
       message: `Email sent to HOD (${hodEmail})`,
       messageId: info.messageId,
       acceptLinkExample: acceptLink,
@@ -209,9 +220,10 @@ mailRouter.post("/hod-confirmation", async (req, res) => {
 
   } catch (error) {
     console.error("Error sending HOD confirmation email:", error);
-    res.status(500).json({ error: "Failed to send email." });
+    return res.status(500).json({ error: "Failed to send email." });
   }
 });
+
 
 
 mailRouter.get("/hod-decision/accept", async (req, res) => {

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react"
 import ProjectList from "../components/Dashboard/ProjectList"
-import { api } from "../lib/api"
 import Navbar from "../components/Navbar"
 
 const Dashboard = () => {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Navigate } from "react-router-dom"
-import { api } from "../lib/api"
+import { api, apiLink } from "../lib/api"
 
 const ProtectedRoute = ({ children }: { children: React.ReactElement }) => {
   const [loading, setLoading] = useState(true)
@@ -9,7 +9,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactElement }) => {
   useEffect(() => {
     const verify = async () => {
       try {
-        const res = await fetch(`${api}/api/auth/verify`, {
+        const res = await fetch(`${apiLink}/api/auth/verify`, {
           credentials: "include"
         })
         const data = await res.json()

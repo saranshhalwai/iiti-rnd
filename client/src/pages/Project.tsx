@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import StaffRecruitmentForm from "../components/Project/StaffRecruitmentForm/StaffRecruitmentForm"
-import { api } from "../lib/api"
+import { apiLink } from "../lib/api"
 
 const tabs = [
   { id: 1, title: "Staff Recruitment" },
@@ -27,7 +27,7 @@ export default function Project() {
   useEffect(() => {
     const fetchProject = async () => {
       try {
-        const res = await fetch(`${api}/api/project/${id}`, {
+        const res = await fetch(`${apiLink}/api/project/${id}`, {
           credentials: "include",
         });
         console.log(res)

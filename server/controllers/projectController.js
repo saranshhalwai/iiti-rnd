@@ -51,39 +51,55 @@ router.get("/:id", async (req, res) => {
   res.json(project);
 });
 
-router.post("/:id/staffRecruitmentForm", async (req, res) => {
+router.post("/:id/staffRecruitmentForm", verifyUser, async (req, res) => {
   try {
     const { id } = req.params;
-    const { members } = req.body;
-    const userEmail = req.user?.email;
+    const { chair, members } = req.body;
+    const userEmail = req.user.email;
 
-    if (!userEmail) {
-      return res.status(401).json({ message: "Unauthorized" });
+    if (!chair || !Array.isArray(members))
+      return res.status(400).json({ message: "Chair + Members required" });
+
+    const project = await prisma.project.findUnique({ where: { id }});
+    if (!project || project.userEmail !== userEmail)
+      return res.status(403).json({ message: "Not allowed" });
+
+    const existing = await prisma.staffRecruitmentForm.findFirst({
+      where: { projectId: id }
+    });
+
+    if (existing) {
+      await prisma.staffRecruitmentForm.update({
+        where: { id: existing.id },
+        data: {
+          selectionCommittee: { chair, members },
+          status: "SAVED"
+        }
+      });
+    } else {
+      await prisma.staffRecruitmentForm.create({
+        data: {
+          projectId: id,
+          selectionCommittee: { chair, members },
+          status: "SAVED"
+        }
+      });
     }
 
-    const project = await prisma.project.findUnique({
+    // also sync project status
+    await prisma.project.update({
       where: { id },
+      data: { status: "SAVED" }
     });
 
-    if (!project || project.userEmail !== userEmail) {
-      return res
-        .status(403)
-        .json({ message: "You are not allowed to submit this form" });
-    }
+    res.json({ success: true, message: "Form saved" });
 
-    await prisma.staffRecruitmentForm.create({
-      data: {
-        projectId: id,
-        selectionCommittee: members,
-        status: "PENDING",
-      },
-    });
-    res.json({ message: "Form submitted successfully!" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 router.post("/add", async (req, res) => {
   try {
@@ -134,25 +150,19 @@ router.get("/:id/staffRecruitmentForm", verifyUser, async (req, res) => {
     const userEmail = req.user.email;
 
     const project = await prisma.project.findUnique({
-      where: { id },
+      where: { id }
     });
-
-    if (!project || project.userEmail !== userEmail) {
+    if (!project || project.userEmail !== userEmail)
       return res.status(403).json({ message: "Unauthorized" });
-    }
 
-    // FIXED: use findFirst, NOT findUnique
     const form = await prisma.staffRecruitmentForm.findFirst({
-      where: { projectId: id },
+      where: { projectId: id }
     });
-
-    if (!form) {
-      return res.status(404).json({ message: "Form not submitted yet" });
-    }
-
+    if (!form)
+      return res.status(404).json({ message: "Form not submitted" });
     res.json({
-      members: form.selectionCommittee,
-      status: form.status,
+      selectionCommittee: form.selectionCommittee,
+      status: form.status
     });
 
   } catch (err) {
@@ -160,6 +170,7 @@ router.get("/:id/staffRecruitmentForm", verifyUser, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 
 export default router;

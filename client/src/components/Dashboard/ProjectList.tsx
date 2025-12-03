@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { api } from "../../lib/api"
+import { api, apiLink } from "../../lib/api"
 import { FiArrowUpRight } from "react-icons/fi"
 
 const ProjectList = () => {
@@ -11,7 +11,7 @@ const ProjectList = () => {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const res = await fetch(`${api}/api/project/user-projects`, {
+        const res = await fetch(`${apiLink}/api/project/user-projects`, {
           credentials: "include"
         })
         const data = await res.json()

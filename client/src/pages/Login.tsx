@@ -1,13 +1,13 @@
 import loginpage from "../assets/loginpage.jpg"
 import iitiLogo from "../assets/iitilogo.png"
-import { api } from "../lib/api"
+import { apiLink } from "../lib/api"
 
 const Login = () => {
   const handleUserLogin = () => {
-    window.location.href = `${api}/api/auth/google/redirect`
+    window.location.href = `${apiLink}/api/auth/google/redirect`
   }
   const handleAdminLogin = () => {
-    window.location.href = `${api}/api/auth/admin/google/redirect`
+    window.location.href = `${apiLink}/api/auth/admin/google/redirect`
   }
   return (
     <div

@@ -1,1 +1,11 @@
-export const api = "http://localhost:5000"
+import axios from "axios";
+
+export const api = axios.create({
+  baseURL: "http://localhost:5000",
+  withCredentials: true,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+export const apiLink = `http://localhost:5000`
