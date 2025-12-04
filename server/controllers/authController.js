@@ -1,8 +1,7 @@
 import express from "express"
 import { OAuth2Client } from "google-auth-library"
 import jwt from "jsonwebtoken"
-import { PrismaClient } from "@prisma/client"
-const prisma = new PrismaClient()
+import prisma from "../db/prisma.js"
 const router = express.Router()
 import { client as clientUrl, server } from "../lib/client.js"
 
@@ -20,8 +19,6 @@ router.get("/verify", (req, res) => {
 })
 
 router.get("/google/redirect", (req, res) => {
-    console.log(process.env.GOOGLE_CLIENT_ID)
-    console.log(process.env.GOOGLE_CLIENT_ID)
     const scope = [
     "openid",
     "email",

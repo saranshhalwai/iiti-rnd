@@ -1,10 +1,9 @@
 import express from "express"
 import { OAuth2Client } from "google-auth-library"
 import jwt from "jsonwebtoken"
-import { PrismaClient } from "@prisma/client"
+import prisma from "../db/prisma.js"
 import { client, server} from "../lib/client.js"
 
-const prisma = new PrismaClient()
 const router = express.Router()
 
 const clientId = process.env.GOOGLE_CLIENT_ID

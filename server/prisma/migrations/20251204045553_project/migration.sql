@@ -1,23 +1,18 @@
-/*
-  Warnings:
-
-  - The primary key for the `User` table will be changed. If it partially fails, the table could be left without primary key constraint.
-  - You are about to drop the column `createdAt` on the `User` table. All the data in the column will be lost.
-  - Made the column `name` on table `User` required. This step will fail if there are existing NULL values in that column.
-
-*/
 -- CreateEnum
-CREATE TYPE "FormStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
+CREATE TYPE "FormStatus" AS ENUM ('PENDING', 'SAVED', 'PENDING_HOD', 'REJECTED_HOD', 'PENDING_DEAN', 'REJECTED_DEAN', 'APPROVED');
 
--- AlterTable
-ALTER TABLE "User" DROP CONSTRAINT "User_pkey",
-DROP COLUMN "createdAt",
-ADD COLUMN     "lastVisit" TIMESTAMP(3),
-ALTER COLUMN "id" DROP DEFAULT,
-ALTER COLUMN "id" SET DATA TYPE TEXT,
-ALTER COLUMN "name" SET NOT NULL,
-ADD CONSTRAINT "User_pkey" PRIMARY KEY ("id");
-DROP SEQUENCE "User_id_seq";
+-- CreateEnum
+CREATE TYPE "ProjectStatus" AS ENUM ('PENDING', 'SAVED', 'PENDING_HOD', 'REJECTED_HOD', 'PENDING_DEAN', 'REJECTED_DEAN', 'APPROVED');
+
+-- CreateTable
+CREATE TABLE "User" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "lastVisit" TIMESTAMP(3),
+
+    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "Admin" (
@@ -30,9 +25,12 @@ CREATE TABLE "Admin" (
 
 -- CreateTable
 CREATE TABLE "Project" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid(),
     "userEmail" TEXT NOT NULL,
-    "status" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "fundingAgency" TEXT NOT NULL,
+    "projectDuration" TEXT NOT NULL,
+    "status" "ProjectStatus" NOT NULL DEFAULT 'SAVED',
 
     CONSTRAINT "Project_pkey" PRIMARY KEY ("id")
 );
@@ -41,18 +39,16 @@ CREATE TABLE "Project" (
 CREATE TABLE "StaffRecruitmentForm" (
     "id" TEXT NOT NULL,
     "projectId" TEXT,
-    "projectTitle" TEXT NOT NULL,
-    "fundingAgency" TEXT NOT NULL,
-    "projectDuration" TEXT NOT NULL,
     "selectionCommittee" JSONB NOT NULL,
-    "status" "FormStatus" NOT NULL DEFAULT 'PENDING',
-    "hodSignature" TEXT,
-    "rndDeanSignature" TEXT,
+    "status" "FormStatus" NOT NULL DEFAULT 'SAVED',
     "submittedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "approvedAt" TIMESTAMP(3),
 
     CONSTRAINT "StaffRecruitmentForm_pkey" PRIMARY KEY ("id")
 );
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Admin_email_key" ON "Admin"("email");

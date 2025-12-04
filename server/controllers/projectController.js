@@ -1,7 +1,6 @@
 import express from "express";
 import jwt from "jsonwebtoken";
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+import prisma from "../db/prisma.js";
 const router = express.Router();
 
 router.get("/user-projects", async (req, res) => {

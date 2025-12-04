@@ -1,6 +1,5 @@
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -47,6 +46,7 @@ enum FormStatus {
   SAVED
   PENDING_HOD
   REJECTED_HOD
+  CONFIRMED_HOD
   PENDING_DEAN
   REJECTED_DEAN
   APPROVED
@@ -56,6 +56,7 @@ enum ProjectStatus {
   PENDING
   SAVED
   PENDING_HOD
+  CONFIRMED_HOD
   REJECTED_HOD
   PENDING_DEAN
   REJECTED_DEAN
