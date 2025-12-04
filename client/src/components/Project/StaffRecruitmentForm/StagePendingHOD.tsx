@@ -38,7 +38,6 @@ export default function StagePendingHOD({ uploadedData }: StagePendingProps) {
             <ul className="space-y-2 text-gray-800">
               {members.map((m, i) => (
                 <li key={i} className="flex items-center gap-2 pl-1">
-                   <span className="w-1.5 h-1.5 bg-blue-400 rounded-full"></span> 
                    {m}
                 </li>
               ))}

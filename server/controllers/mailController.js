@@ -634,4 +634,56 @@ An internal server error occurred while processing your decision.
   }
 });
 
+mailRouter.post("/dean-retry", async (req, res) => {
+  const { projId } = req.body;
+
+  if (!projId) return res.status(400).json({ error: "Missing projId" });
+
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: projId }
+    });
+
+    if (!project) return res.status(404).json({ error: "Project not found" });
+
+    if (project.status !== "CONFIRMED_HOD") {
+      return res.status(400).json({
+        error: "Retry only allowed when status is CONFIRMED_HOD"
+      });
+    }
+
+    // Attempt sending email
+    await transporter.sendMail({
+      from: `"Department System" <${transporter.options.auth.user}>`,
+      to: DEAN_RND_EMAIL,
+      subject: `[ACTION REQUIRED] Project HOD Confirmed: ${project.title}`,
+      html: createDeanNotificationEmail(project),
+    });
+
+    // Success → update to PENDING_DEAN
+    await prisma.project.update({
+      where: { id: projId },
+      data: { status: "PENDING_DEAN" }
+    });
+
+    const form = await prisma.staffRecruitmentForm.findFirst({
+      where: { projectId: projId }
+    });
+
+    if (form) {
+      await prisma.staffRecruitmentForm.update({
+        where: { id: form.id },
+        data: { status: "PENDING_DEAN" }
+      });
+    }
+
+    return res.json({ success: true, message: "Dean email sent" });
+
+  } catch (err) {
+    console.error("Dean retry failed:", err);
+    return res.status(500).json({ success: false, error: "Failed to send email" });
+  }
+});
+
+
 export default mailRouter;

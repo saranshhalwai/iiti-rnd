@@ -23,6 +23,7 @@ type Stage =
   | "saved"
   | "pending_hod"
   | "rejected_hod"
+  | "retry_dean"
   | "pending_dean"
   | "rejected_dean"
   | "approved";
@@ -33,6 +34,7 @@ const mapStatusToStage = (status?: string): Stage => {
     case "PENDING_HOD": return "pending_hod";
     case "REJECTED_HOD": return "rejected_hod";
     case "PENDING_DEAN": return "pending_dean";
+    case "CONFIRMED_HOD": return "retry_dean";
     case "REJECTED_DEAN": return "rejected_dean";
     case "APPROVED": return "approved";
     default: return "form";
@@ -190,7 +192,15 @@ const submitCommittee = async () => {
       )}
 
       {stage === "pending_dean" && committeeData && (
-        <StagePendingDean uploadedData={committeeData} />
+        <StagePendingDean uploadedData={committeeData} projId={projectId} />
+      )}
+
+      {stage === "retry_dean" && committeeData && (
+        <StagePendingDean
+          uploadedData={committeeData}
+          projId={projectId}
+          showRetry={true}
+        />
       )}
 
       {stage === "rejected_dean" && committeeData && (

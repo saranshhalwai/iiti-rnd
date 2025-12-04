@@ -2,7 +2,7 @@ import express from "express"
 import { OAuth2Client } from "google-auth-library"
 import jwt from "jsonwebtoken"
 import prisma from "../db/prisma.js"
-import { client, server} from "../lib/client.js"
+import { client as clientLink, server} from "../lib/client.js"
 
 const router = express.Router()
 
@@ -24,7 +24,7 @@ router.get("/verify", (req, res) => {
 
 router.get("/google/redirect", (req, res) => {
   const scope = ["openid", "email", "profile"].join(" ")
-  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&prompt=select_account`
+  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.GOOGLE_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&prompt=select_account`
   res.redirect(url)
 })
 
@@ -65,7 +65,36 @@ router.get("/google/callback", async (req, res) => {
     maxAge: 7 * 24 * 60 * 60 * 1000
   })
 
-  res.redirect(`${client}/admin/panel`)
+  res.redirect(`${clientLink}/admin/panel`)
 })
+
+router.post("/create", async (req, res) => {
+  try {
+    const { name, email, secret } = req.body
+
+    if (!name || !email || !secret) {
+      return res.status(400).json({ success: false, message: "name, email & secret required" })
+    }
+
+    if (secret !== process.env.ADMIN_SECRET) {
+      return res.status(403).json({ success: false, message: "Invalid secret key" })
+    }
+
+    const existing = await prisma.admin.findUnique({ where: { email } })
+    if (existing) {
+      return res.status(400).json({ success: false, message: "Admin already exists" })
+    }
+
+    const admin = await prisma.admin.create({
+      data: { name, email }
+    })
+
+    return res.json({ success: true, admin })
+  } catch (err) {
+    console.error("Admin creation error:", err)
+    res.status(500).json({ success: false, message: "Internal server error" })
+  }
+})
+
 
 export default router
