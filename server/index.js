@@ -15,6 +15,14 @@ app.use(cors({
   })
 )
 
+// Debug logger: logs every request, raw cookie header and parsed cookies
+app.use((req, res, next) => {
+    console.log("[REQ]", req.method, req.originalUrl)
+    console.log("  headers.cookie:", req.headers.cookie)
+    console.log("  req.cookies:", req.cookies)
+    next()
+})
+
 app.use("/api", allRoutes)
 
 const PORT = process.env.PORT || 5000

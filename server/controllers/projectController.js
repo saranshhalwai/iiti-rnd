@@ -3,6 +3,29 @@ import jwt from "jsonwebtoken";
 import prisma from "../db/prisma.js";
 const router = express.Router();
 
+router.get("/all-projects", async (req, res) => {
+  const token = req.cookies.adKey;
+
+  if (!token)
+    return res.status(401).json({success: false, message: "No token"});
+
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+  if (!decoded.id)
+    return res
+        .status(403)
+        .json({ success: false, message: "Access denied. Admins only." });
+
+  try {
+    const projects = await prisma.project.findMany({
+      include: { forms: false },
+    });
+    res.json({success: true, projects: projects});
+  } catch (err) {
+    console.error(err);
+  }
+})
+
 router.get("/user-projects", async (req, res) => {
   const token = req.cookies.acKey;
   if (!token)
@@ -102,13 +125,13 @@ router.post("/:id/staffRecruitmentForm", verifyUser, async (req, res) => {
 
 router.post("/add", async (req, res) => {
   try {
-    const token = req.cookies.acKey;
+    const token = req.cookies.adKey;
     if (!token)
       return res.status(401).json({ success: false, message: "No token" });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (decoded.role !== "ADMIN")
+    if (!decoded.id)
       return res
         .status(403)
         .json({ success: false, message: "Access denied. Admins only." });

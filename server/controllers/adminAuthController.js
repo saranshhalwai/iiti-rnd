@@ -46,8 +46,8 @@ router.get("/google/callback", async (req, res) => {
   const tokens = await tokenRes.json()
   const idToken = tokens.id_token
 
-  const client = new OAuth2Client(clientId)
-  const ticket = await client.verifyIdToken({
+  const oAuth2Client = new OAuth2Client(clientId)
+  const ticket = await oAuth2Client.verifyIdToken({
     idToken,
     audience: clientId
   })

@@ -1,23 +1,26 @@
 import { useState } from "react"
-import { api } from "../lib/api"
+import { apiLink } from "../lib/api"
 
 const AdminPanel = () => {
   const [title, setTitle] = useState("")
   const [userEmail, setUserEmail] = useState("")
   const [status, setStatus] = useState("Pending")
+  const [fundingAgency, setFundingAgency] = useState("")
+  const [projectDuration, setProjectDuration] = useState("")
 
   const handleCreate = async () => {
-    const token = localStorage.getItem("acKey")
-    const res = await fetch(`${api}/admin/create-project`, {
+    // use admin token key (adKey) — server checks adKey for admin routes
+
+    const res = await fetch(`${apiLink}/api/project/add`, {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ title, userEmail, status }),
+      body: JSON.stringify({ title, userEmail, status, fundingAgency, projectDuration }),
     })
     const data = await res.json()
-    alert(data.id ? "Project created!" : "Error creating project")
+    alert(data.success ? "Project created!" : "Error creating project")
   }
 
   return (
@@ -37,6 +40,18 @@ const AdminPanel = () => {
           className="border p-2 w-full mb-3"
           value={userEmail}
           onChange={e => setUserEmail(e.target.value)}
+        />
+        <input
+            placeholder="Funding Agency"
+            className="border p-2 w-full mb-3"
+            value={fundingAgency}
+            onChange={e => setFundingAgency(e.target.value)}
+        />
+        <input
+            placeholder="Project Duration"
+            className="border p-2 w-full mb-3"
+            value={projectDuration}
+            onChange={e => setProjectDuration(e.target.value)}
         />
         <select
           className="border p-2 w-full mb-4"
