@@ -62,3 +62,10 @@ enum ProjectStatus {
   REJECTED_DEAN
   APPROVED
 }
+
+model DepartmentAuthority {
+  id          String @id @default(uuid())
+  dept_name   String @unique
+  hod_email   String
+  dean_email  String
+}

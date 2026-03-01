@@ -4,7 +4,7 @@ const Home: React.FC = () => {
     return (
         <div style={{ padding: '2rem', textAlign: 'center' }}>
             <h1>Welcome to the Home Page</h1>
-            <p>This is a sample home page built with React and Vite.</p>
+            <p>There would be Home Page here if any.</p>
         </div>
     );
 };
