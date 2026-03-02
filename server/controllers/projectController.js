@@ -123,28 +123,29 @@ router.post("/:id/staffRecruitmentForm", verifyUser, async (req, res) => {
   }
 });
 
-
 router.post("/add", async (req, res) => {
   try {
-    const token = req.cookies.adKey;
-    if (!token)
-      return res.status(401).json({ success: false, message: "No token" });
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    if (!decoded.id)
-      return res
-        .status(403)
-        .json({ success: false, message: "Access denied. Admins only." });
-
-    const { userEmail, title, fundingAgency, projectDuration } = req.body;
-
-    if (!userEmail || !title || !fundingAgency || !projectDuration) {
+    const token = req.cookies.adKey
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "No token",
+      })
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    if (!decoded.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Admins only.",
+      })
+    }
+    const { userEmail, title, fundingAgency, projectDuration, hodEmail, deanEmail} = req.body
+    if (!userEmail || !title || !fundingAgency || !projectDuration || !hodEmail || !deanEmail) {
       return res.status(400).json({
         success: false,
         message:
-          "All fields (userEmail, title, fundingAgency, projectDuration) are required",
-      });
+          "userEmail, title, fundingAgency, projectDuration, hodEmail and deanEmail are required",
+      })
     }
 
     const newProject = await prisma.project.create({
@@ -153,19 +154,25 @@ router.post("/add", async (req, res) => {
         title,
         fundingAgency,
         projectDuration,
+        hodEmail,
+        deanEmail,
+        status: "SAVED",
       },
-    });
+    })
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Project added successfully",
       project: newProject,
-    });
+    })
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error("Project creation error:", err)
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    })
   }
-});
+})
 
 router.get("/:id/staffRecruitmentForm", verifyUser, async (req, res) => {
   try {
@@ -193,7 +200,5 @@ router.get("/:id/staffRecruitmentForm", verifyUser, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
-
 
 export default router;

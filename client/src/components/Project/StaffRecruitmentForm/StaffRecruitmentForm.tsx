@@ -99,25 +99,6 @@ const triggerHOD = async () => {
   }
 };
 
-
-  const triggerDean = async () => {
-    try {
-      const r = await api.post(`/api/mail/dean-confirmation`, {
-        dept: "cse",
-        projId: projectId
-      });
-
-      if (r.status === 200) {
-        setStage("pending_dean");
-        return true;
-      }
-
-      return false;
-    } catch {
-      return false;
-    }
-  };
-
 const submitCommittee = async () => {
   try {
     const r = await api.post(

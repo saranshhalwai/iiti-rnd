@@ -7,6 +7,7 @@ import ProtectedRoute from "./components/ProtectedRoute"
 import ProtectedAdminRoute from "./components/ProtectedAdminRoute"
 import AdminPanel from "./pages/AdminPanel"
 import Project from "./pages/Project"
+import AdminDeptHeadMails from "./pages/AdminDeptHeadMails"
 
 function App() {
   return (
@@ -23,6 +24,14 @@ function App() {
             // </ProtectedAdminRoute>
           }
         />
+        <Route
+          path="/admin/dept-head-mails"
+          element={
+            // <ProtectedAdminRoute role="admin">
+              <AdminDeptHeadMails/>
+            // </ProtectedAdminRoute>
+          }
+        />        
         <Route path="/project/:id" element={<Project/>} />
       </Routes>
     </BrowserRouter>
