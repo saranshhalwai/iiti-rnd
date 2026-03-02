@@ -29,6 +29,7 @@ model Project {
   status          ProjectStatus @default(SAVED)
   user   User                    @relation(fields: [userEmail], references: [email])
   forms  StaffRecruitmentForm[]
+  logs   ProjectLog[]
 }
 
 model StaffRecruitmentForm {
@@ -39,6 +40,14 @@ model StaffRecruitmentForm {
   submittedAt        DateTime    @default(now())
   approvedAt         DateTime?
   project Project? @relation(fields: [projectId], references: [id])
+}
+
+model ProjectLog {
+  id        String   @id @default(uuid())
+  projectId String
+  action    String   // e.g., "REJECTED_HOD", "REJECTED_DEAN"
+  timestamp DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id])
 }
 
 enum FormStatus {

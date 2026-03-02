@@ -18,11 +18,12 @@ router.get("/all-projects", async (req, res) => {
 
   try {
     const projects = await prisma.project.findMany({
-      include: { forms: false },
+      include: { forms: false, user: true },
     });
     res.json({success: true, projects: projects});
   } catch (err) {
     console.error(err);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 })
 

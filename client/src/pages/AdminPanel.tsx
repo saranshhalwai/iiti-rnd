@@ -129,7 +129,7 @@ const AdminPanel = () => {
                         <div className="font-medium">{p.title}</div>
                         <div className="text-xs text-gray-500">ID: {p.id}</div>
                       </td>
-                      <td className="py-3 px-2 align-top">{p.userEmail}</td>
+                      <td className="py-3 px-2 align-top">{p.user?.name?p.user.name : p.userEmail}</td>
                       <td className="py-3 px-2 align-top">{p.fundingAgency}</td>
                       <td className="py-3 px-2 align-top">{p.projectDuration}</td>
                       <td className="py-3 px-2 align-top">
