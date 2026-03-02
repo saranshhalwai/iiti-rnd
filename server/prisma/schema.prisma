@@ -26,6 +26,8 @@ model Project {
   title           String
   fundingAgency   String
   projectDuration String
+  hodEmail        String
+  deanEmail       String
   status          ProjectStatus @default(SAVED)
   user   User                    @relation(fields: [userEmail], references: [email])
   forms  StaffRecruitmentForm[]
