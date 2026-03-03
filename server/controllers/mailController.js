@@ -19,7 +19,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const createSubmitterUpdateEmail = (project, decision) => {
+const createSubmitterUpdateEmail = (project, decision, hodComment = null) => {
   const isAccepted = decision === "ACCEPTED";
   const color = isAccepted ? "#10B981" : "#EF4444";
   const tag = isAccepted ? "Approved" : "Rejected";
@@ -28,6 +28,11 @@ const createSubmitterUpdateEmail = (project, decision) => {
   const message = isAccepted
     ? "Congratulations! Your project has been officially ACCEPTED by the Head of Department and has moved to the next approval stage."
     : "Your project request has been officially REJECTED by the Head of Department. Please review the reasons and resubmit if necessary.";
+
+ 
+  const commentBlock = hodComment
+    ? `<li style="margin-bottom: 0;"><strong>HOD Comment:</strong> <span style="color: #374151;">${hodComment}</span></li>`
+    : "";
 
   return `
     <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
@@ -45,8 +50,9 @@ const createSubmitterUpdateEmail = (project, decision) => {
               <li style="margin-bottom: 8px;"><strong>Title:</strong> ${project.title
     }</li>
               <li style="margin-bottom: 8px;"><strong>HOD Decision:</strong> <span style="font-weight: bold; color: ${color};">${icon}</span></li>
-              <li style="margin-bottom: 0;"><strong>New Status:</strong> <span style="font-weight: bold; color: ${color};">${project.status
+              <li style="margin-bottom: 8px;"><strong>New Status:</strong> <span style="font-weight: bold; color: ${color};">${project.status
     }</span></li>
+              ${commentBlock}
             </ul>
             <p style="font-size: 0.9em; color: #777; text-align: center;">Thank you for using the R&D Portal.</p>
         </div>
@@ -265,11 +271,9 @@ mailRouter.post("/hod-confirmation", async (req, res) => {
 /**
  * STEP 2: HOD ACCEPTS
  * Flow:
- *  - Project & Form: PENDING_HOD -> CONFIRMED_HOD -> PENDING_DEAN
- *  - Send Dean email
- *  - Send submitter email (status will be PENDING_DEAN)
+ *  - Serve a comment form; actual processing happens in POST /hod-decision/accept
  */
-mailRouter.get("/hod-decision/accept", async (req, res) => {
+mailRouter.get("/hod-decision/accept", (req, res) => {
   const projId = req.query.projId;
 
   if (!projId) {
@@ -282,14 +286,80 @@ mailRouter.get("/hod-decision/accept", async (req, res) => {
  `);
   }
 
+  res.send(`
+ <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: Arial, sans-serif;">
+ <div style="max-width: 500px; margin: 40px auto; padding: 30px; background-color: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); border-top: 5px solid #10B981;">
+   <h1 style="color: #10B981; text-align: center; font-size: 2em; margin-bottom: 5px;">✅ Accept Project</h1>
+   <p style="text-align: center; color: #555; margin-bottom: 25px;">Project ID: <strong>${projId}</strong></p>
+   <p style="color: #374151; margin-bottom: 8px; font-weight: bold;">Comment <span style="color:#EF4444;">*</span></p>
+   <p style="color: #6B7280; font-size: 0.9em; margin: 0 0 10px 0;">A comment is required before your decision can be recorded.</p>
+   <form method="POST" action="/api/mail/hod-decision/accept">
+     <input type="hidden" name="projId" value="${projId}" />
+     <textarea name="hodComment" rows="5" required placeholder="Enter your acceptance remarks here…"
+       style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #D1D5DB; border-radius: 6px; font-size: 0.95em; resize: vertical; font-family: Arial, sans-serif;"></textarea>
+     <button type="submit"
+       style="margin-top: 18px; width: 100%; padding: 12px; background-color: #059669; color: white; border: none; border-radius: 6px; font-size: 1em; font-weight: bold; cursor: pointer;">
+       &#10003; Confirm Acceptance
+     </button>
+   </form>
+ </div>
+ </body>
+ `);
+});
+
+/**
+ * STEP 2: HOD ACCEPTS — processes the decision after comment form is submitted
+ * Flow:
+ *  - Project & Form: PENDING_HOD -> CONFIRMED_HOD -> PENDING_DEAN
+ *  - Log entry with comment
+ *  - Send Dean email
+ *  - Send submitter email (status will be PENDING_DEAN)
+ */
+mailRouter.post("/hod-decision/accept", async (req, res) => {
+  const { projId, hodComment } = req.body;
+
+  if (!projId) {
+    return res.status(400).send(`
+ <div style="font-family: Arial, sans-serif; text-align: center; padding: 30px; max-width: 400px; margin: 40px auto; background-color: #fff; border-radius: 8px; border: 1px solid #F59E0B; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);">
+ <h1 style="color: #F59E0B; font-size: 1.8em;">URL Error</h1>
+ <p style="font-size: 1em; color: #333;">The request URL is incomplete or corrupted.</p>
+ <p style="font-size: 0.9em; color: #777;">Missing projId parameter.</p>
+ </div>
+ `);
+  }
+
+  if (!hodComment || !hodComment.trim()) {
+    return res.status(400).send(`
+ <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: Arial, sans-serif;">
+ <div style="max-width: 500px; margin: 40px auto; padding: 30px; background-color: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); text-align: center; border-top: 5px solid #F59E0B;">
+   <h1 style="color: #F59E0B; font-size: 2em;">⚠️ Comment Required</h1>
+   <p style="color: #333;">A comment is mandatory before your decision can be recorded.</p>
+   <a href="/api/mail/hod-decision/accept?projId=${projId}"
+      style="display:inline-block; margin-top:15px; padding: 10px 20px; background-color: #059669; color: white; border-radius: 6px; text-decoration: none; font-weight: bold;">
+     ← Go Back
+   </a>
+ </div>
+ </body>
+ `);
+  }
+
   try {
     const form = await prisma.staffRecruitmentForm.findFirst({
       where: { projectId: projId },
     });
-    // 1) Set CONFIRMED_HOD (for dean email content)
+
+    // 1) Set CONFIRMED_HOD and log with comment
     const confirmedProject = await prisma.project.update({
       where: { id: projId },
-      data: { status: "CONFIRMED_HOD" },
+      data: {
+        status: "CONFIRMED_HOD",
+        logs: {
+          create: {
+            action: "CONFIRMED_HOD",
+            comment: hodComment.trim(),
+          },
+        },
+      },
     });
 
     if (form) {
@@ -321,12 +391,12 @@ mailRouter.get("/hod-decision/accept", async (req, res) => {
       });
     }
 
-    // 4) Send email to submitter (shows status PENDING_DEAN)
+    // 4) Send email to submitter (shows status PENDING_DEAN, includes comment)
     const submitterMailOptions = {
       from: `"Department System" <${transporter.options.auth.user}>`,
       to: pendingDeanProject.userEmail,
       subject: `Project Status Update: HOD Accepted - ${pendingDeanProject.title}`,
-      html: createSubmitterUpdateEmail(pendingDeanProject, "ACCEPTED"),
+      html: createSubmitterUpdateEmail(pendingDeanProject, "ACCEPTED", hodComment.trim()),
     };
     await transporter.sendMail(submitterMailOptions);
 
@@ -374,10 +444,9 @@ Please try again later. If the issue persists, contact IT support and provide th
 /**
  * STEP 2: HOD REJECTS
  * Flow:
- *  - Project & Form: PENDING_HOD -> REJECTED_HOD
- *  - Send submitter email
+ *  - Serve a comment form; actual processing happens in POST /hod-decision/reject
  */
-mailRouter.get("/hod-decision/reject", async (req, res) => {
+mailRouter.get("/hod-decision/reject", (req, res) => {
   const projId = req.query.projId;
 
   if (!projId) {
@@ -387,6 +456,62 @@ mailRouter.get("/hod-decision/reject", async (req, res) => {
 <p style="font-size: 1em; color: #333;">The request URL is incomplete or corrupted.</p>
 <p style="font-size: 0.9em; color: #777;">Missing projId parameter.</p>
  </div>
+ `);
+  }
+
+  res.send(`
+ <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: Arial, sans-serif;">
+ <div style="max-width: 500px; margin: 40px auto; padding: 30px; background-color: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); border-top: 5px solid #EF4444;">
+   <h1 style="color: #EF4444; text-align: center; font-size: 2em; margin-bottom: 5px;">🛑 Reject Project</h1>
+   <p style="text-align: center; color: #555; margin-bottom: 25px;">Project ID: <strong>${projId}</strong></p>
+   <p style="color: #374151; margin-bottom: 8px; font-weight: bold;">Reason for Rejection <span style="color:#EF4444;">*</span></p>
+   <p style="color: #6B7280; font-size: 0.9em; margin: 0 0 10px 0;">A comment is required before your decision can be recorded.</p>
+   <form method="POST" action="/api/mail/hod-decision/reject">
+     <input type="hidden" name="projId" value="${projId}" />
+     <textarea name="hodComment" rows="5" required placeholder="Enter your rejection reason here…"
+       style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #D1D5DB; border-radius: 6px; font-size: 0.95em; resize: vertical; font-family: Arial, sans-serif;"></textarea>
+     <button type="submit"
+       style="margin-top: 18px; width: 100%; padding: 12px; background-color: #EF4444; color: white; border: none; border-radius: 6px; font-size: 1em; font-weight: bold; cursor: pointer;">
+       &#10007; Confirm Rejection
+     </button>
+   </form>
+ </div>
+ </body>
+ `);
+});
+
+/**
+ * STEP 2: HOD REJECTS — processes the decision after comment form is submitted
+ * Flow:
+ *  - Project & Form: PENDING_HOD -> REJECTED_HOD (reset to SAVED)
+ *  - Log entry with comment
+ *  - Send submitter email
+ */
+mailRouter.post("/hod-decision/reject", async (req, res) => {
+  const { projId, hodComment } = req.body;
+
+  if (!projId) {
+    return res.status(400).send(`
+ <div style="font-family: Arial, sans-serif; text-align: center; padding: 30px; max-width: 400px; margin: 40px auto; background-color: #fff; border-radius: 8px; border: 1px solid #F59E0B; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);">
+<h1 style="color: #F59E0B; font-size: 1.8em;">URL Error</h1>
+<p style="font-size: 1em; color: #333;">The request URL is incomplete or corrupted.</p>
+<p style="font-size: 0.9em; color: #777;">Missing projId parameter.</p>
+ </div>
+ `);
+  }
+
+  if (!hodComment || !hodComment.trim()) {
+    return res.status(400).send(`
+ <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: Arial, sans-serif;">
+ <div style="max-width: 500px; margin: 40px auto; padding: 30px; background-color: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); text-align: center; border-top: 5px solid #F59E0B;">
+   <h1 style="color: #F59E0B; font-size: 2em;">⚠️ Comment Required</h1>
+   <p style="color: #333;">A comment is mandatory before your decision can be recorded.</p>
+   <a href="/api/mail/hod-decision/reject?projId=${projId}"
+      style="display:inline-block; margin-top:15px; padding: 10px 20px; background-color: #EF4444; color: white; border-radius: 6px; text-decoration: none; font-weight: bold;">
+     ← Go Back
+   </a>
+ </div>
+ </body>
  `);
   }
 
@@ -401,9 +526,10 @@ mailRouter.get("/hod-decision/reject", async (req, res) => {
         status: "SAVED", // Reset to square 0
         logs: {
           create: {
-            action: "REJECTED_HOD"
-          }
-        }
+            action: "REJECTED_HOD",
+            comment: hodComment.trim(),
+          },
+        },
       },
     });
 
@@ -418,7 +544,7 @@ mailRouter.get("/hod-decision/reject", async (req, res) => {
       from: `"Department System" <${transporter.options.auth.user}>`,
       to: updatedProject.userEmail,
       subject: `Project Status Update: HOD Rejected - ${updatedProject.title}`,
-      html: createSubmitterUpdateEmail(updatedProject, "REJECTED"),
+      html: createSubmitterUpdateEmail(updatedProject, "REJECTED", hodComment.trim()),
     };
     await transporter.sendMail(submitterMailOptions);
 
