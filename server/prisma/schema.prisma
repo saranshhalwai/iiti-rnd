@@ -18,6 +18,7 @@ model Admin {
   id    String   @id @default(uuid())
   name  String
   email String   @unique
+  projects Project[]
 }
 
 model Project {
@@ -29,9 +30,11 @@ model Project {
   hodEmail        String
   deanEmail       String
   status          ProjectStatus @default(SAVED)
-  user   User                    @relation(fields: [userEmail], references: [email])
-  forms  StaffRecruitmentForm[]
-  logs   ProjectLog[]
+  user            User @relation(fields: [userEmail], references: [email])
+  forms           StaffRecruitmentForm[]
+  logs            ProjectLog[]
+  adminEmail      String
+  admin           Admin @relation(fields: [adminEmail], references: [email])
 }
 
 model StaffRecruitmentForm {

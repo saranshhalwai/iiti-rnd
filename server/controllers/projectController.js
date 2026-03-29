@@ -140,7 +140,7 @@ router.post("/add", async (req, res) => {
       })
     }
     const { userEmail, title, fundingAgency, projectDuration, hodEmail, deanEmail} = req.body
-    if (!userEmail || !title || !fundingAgency || !projectDuration || !hodEmail || !deanEmail) {
+    if (!userEmail || !title || !fundingAgency || !projectDuration || !hodEmail || !deanEmail || !decoded.email) {
       return res.status(400).json({
         success: false,
         message:
@@ -156,6 +156,7 @@ router.post("/add", async (req, res) => {
         projectDuration,
         hodEmail,
         deanEmail,
+        adminEmail: decoded.email,
         status: "SAVED",
       },
     })
