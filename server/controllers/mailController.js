@@ -150,8 +150,6 @@ mailRouter.post("/hod-confirmation", async (req, res) => {
     });
   }
 
-  const hodEmail = HOD_EMAILS[dept.toLowerCase()] || HOD_EMAILS.default;
-
   try {
     const projectDetails = await prisma.project.findUnique({
       where: { id: projId },
@@ -161,6 +159,11 @@ mailRouter.post("/hod-confirmation", async (req, res) => {
       return res
         .status(400)
         .json({ error: "Project with given ID does not exist." });
+    }
+
+    const hodEmail = projectDetails.hodEmail;
+    if (!hodEmail) {
+      return res.status(400).json({ error: "No HOD email found for this project." });
     }
 
     const form = await prisma.staffRecruitmentForm.findFirst({
@@ -271,9 +274,13 @@ mailRouter.post("/hod-confirmation", async (req, res) => {
 /**
  * STEP 2: HOD ACCEPTS
  * Flow:
- *  - Serve a comment form; actual processing happens in POST /hod-decision/accept
+ *  - Immediately processes the acceptance without a comment form.
+ *  - Project & Form: PENDING_HOD -> CONFIRMED_HOD -> PENDING_DEAN
+ *  - Log entry
+ *  - Send Dean email
+ *  - Send submitter email
  */
-mailRouter.get("/hod-decision/accept", (req, res) => {
+mailRouter.get("/hod-decision/accept", async (req, res) => {
   const projId = req.query.projId;
 
   if (!projId) {
@@ -286,69 +293,12 @@ mailRouter.get("/hod-decision/accept", (req, res) => {
  `);
   }
 
-  res.send(`
- <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: Arial, sans-serif;">
- <div style="max-width: 500px; margin: 40px auto; padding: 30px; background-color: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); border-top: 5px solid #10B981;">
-   <h1 style="color: #10B981; text-align: center; font-size: 2em; margin-bottom: 5px;">✅ Accept Project</h1>
-   <p style="text-align: center; color: #555; margin-bottom: 25px;">Project ID: <strong>${projId}</strong></p>
-   <p style="color: #374151; margin-bottom: 8px; font-weight: bold;">Comment <span style="color:#EF4444;">*</span></p>
-   <p style="color: #6B7280; font-size: 0.9em; margin: 0 0 10px 0;">A comment is required before your decision can be recorded.</p>
-   <form method="POST" action="/api/mail/hod-decision/accept">
-     <input type="hidden" name="projId" value="${projId}" />
-     <textarea name="hodComment" rows="5" required placeholder="Enter your acceptance remarks here…"
-       style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #D1D5DB; border-radius: 6px; font-size: 0.95em; resize: vertical; font-family: Arial, sans-serif;"></textarea>
-     <button type="submit"
-       style="margin-top: 18px; width: 100%; padding: 12px; background-color: #059669; color: white; border: none; border-radius: 6px; font-size: 1em; font-weight: bold; cursor: pointer;">
-       &#10003; Confirm Acceptance
-     </button>
-   </form>
- </div>
- </body>
- `);
-});
-
-/**
- * STEP 2: HOD ACCEPTS — processes the decision after comment form is submitted
- * Flow:
- *  - Project & Form: PENDING_HOD -> CONFIRMED_HOD -> PENDING_DEAN
- *  - Log entry with comment
- *  - Send Dean email
- *  - Send submitter email (status will be PENDING_DEAN)
- */
-mailRouter.post("/hod-decision/accept", async (req, res) => {
-  const { projId, hodComment } = req.body;
-
-  if (!projId) {
-    return res.status(400).send(`
- <div style="font-family: Arial, sans-serif; text-align: center; padding: 30px; max-width: 400px; margin: 40px auto; background-color: #fff; border-radius: 8px; border: 1px solid #F59E0B; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);">
- <h1 style="color: #F59E0B; font-size: 1.8em;">URL Error</h1>
- <p style="font-size: 1em; color: #333;">The request URL is incomplete or corrupted.</p>
- <p style="font-size: 0.9em; color: #777;">Missing projId parameter.</p>
- </div>
- `);
-  }
-
-  if (!hodComment || !hodComment.trim()) {
-    return res.status(400).send(`
- <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: Arial, sans-serif;">
- <div style="max-width: 500px; margin: 40px auto; padding: 30px; background-color: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); text-align: center; border-top: 5px solid #F59E0B;">
-   <h1 style="color: #F59E0B; font-size: 2em;">⚠️ Comment Required</h1>
-   <p style="color: #333;">A comment is mandatory before your decision can be recorded.</p>
-   <a href="/api/mail/hod-decision/accept?projId=${projId}"
-      style="display:inline-block; margin-top:15px; padding: 10px 20px; background-color: #059669; color: white; border-radius: 6px; text-decoration: none; font-weight: bold;">
-     ← Go Back
-   </a>
- </div>
- </body>
- `);
-  }
-
   try {
     const form = await prisma.staffRecruitmentForm.findFirst({
       where: { projectId: projId },
     });
 
-    // 1) Set CONFIRMED_HOD and log with comment
+    // 1) Set CONFIRMED_HOD and log
     const confirmedProject = await prisma.project.update({
       where: { id: projId },
       data: {
@@ -356,7 +306,7 @@ mailRouter.post("/hod-decision/accept", async (req, res) => {
         logs: {
           create: {
             action: "CONFIRMED_HOD",
-            comment: hodComment.trim(),
+            comment: "HOD approved the project.",
           },
         },
       },
@@ -369,10 +319,10 @@ mailRouter.post("/hod-decision/accept", async (req, res) => {
       });
     }
 
-    // 2) Send email to Dean (using CONFIRMED_HOD status)
+    // 2) Send email to Dean (using adminEmail from DB)
     const deanMailOptions = {
       from: `"Department System" <${transporter.options.auth.user}>`,
-      to: DEAN_RND_EMAIL,
+      to: confirmedProject.adminEmail,
       subject: `[ACTION REQUIRED] Project HOD Confirmed: ${confirmedProject.title}`,
       html: createDeanNotificationEmail(confirmedProject),
     };
@@ -391,12 +341,12 @@ mailRouter.post("/hod-decision/accept", async (req, res) => {
       });
     }
 
-    // 4) Send email to submitter (shows status PENDING_DEAN, includes comment)
+    // 4) Send email to submitter
     const submitterMailOptions = {
       from: `"Department System" <${transporter.options.auth.user}>`,
       to: pendingDeanProject.userEmail,
       subject: `Project Status Update: HOD Accepted - ${pendingDeanProject.title}`,
-      html: createSubmitterUpdateEmail(pendingDeanProject, "ACCEPTED", hodComment.trim()),
+      html: createSubmitterUpdateEmail(pendingDeanProject, "ACCEPTED", null),
     };
     await transporter.sendMail(submitterMailOptions);
 
@@ -523,7 +473,7 @@ mailRouter.post("/hod-decision/reject", async (req, res) => {
     const updatedProject = await prisma.project.update({
       where: { id: projId },
       data: {
-        status: "SAVED", // Reset to square 0
+        status: "REJECTED_HOD", 
         logs: {
           create: {
             action: "REJECTED_HOD",
@@ -536,7 +486,7 @@ mailRouter.post("/hod-decision/reject", async (req, res) => {
     if (form) {
       await prisma.staffRecruitmentForm.update({
         where: { id: form.id },
-        data: { status: "SAVED" }, // Reset form as well
+        data: { status: "REJECTED_HOD" }, 
       });
     }
 
@@ -701,7 +651,7 @@ mailRouter.get("/dean-decision/reject", async (req, res) => {
     const rejectedProject = await prisma.project.update({
       where: { id: projId },
       data: {
-        status: "SAVED", // Reset to square 0
+        status: "REJECTED_DEAN",
         logs: {
           create: {
             action: "REJECTED_DEAN"
@@ -713,7 +663,7 @@ mailRouter.get("/dean-decision/reject", async (req, res) => {
     if (form) {
       await prisma.staffRecruitmentForm.update({
         where: { id: form.id },
-        data: { status: "SAVED" }, // Reset form
+        data: { status: "REJECTED_DEAN" },
       });
     }
 
@@ -787,7 +737,7 @@ mailRouter.post("/dean-retry", async (req, res) => {
     // Attempt sending email
     await transporter.sendMail({
       from: `"Department System" <${transporter.options.auth.user}>`,
-      to: DEAN_RND_EMAIL,
+      to: project.adminEmail,
       subject: `[ACTION REQUIRED] Project HOD Confirmed: ${project.title}`,
       html: createDeanNotificationEmail(project),
     });
