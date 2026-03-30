@@ -139,5 +139,6 @@ export default function Project() {
         {activeTab === 4 && <div className="text-gray-500 text-center">Completion stage coming soon</div>}
       </div>
     </div>
+    </div>
   )
 }
