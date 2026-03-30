@@ -72,6 +72,7 @@ router.get("/:id", async (req, res) => {
   if (!project || project.userEmail !== userEmail)
     return res.status(403).json({ message: "Unauthorized" });
   res.json(project);
+
 });
 
 router.post("/:id/staffRecruitmentForm", verifyUser, async (req, res) => {
@@ -116,6 +117,48 @@ router.post("/:id/staffRecruitmentForm", verifyUser, async (req, res) => {
     });
 
     res.json({ success: true, message: "Form saved" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+router.post("/:id/recruitmentVacancies", verifyUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { vacancies } = req.body; 
+    const userEmail = req.user.email;
+
+    if (!Array.isArray(vacancies)) {
+      return res.status(400).json({ message: "Vacancies list is required" });
+    }
+    const project = await prisma.project.findUnique({ where: { id } });
+    if (!project || project.userEmail !== userEmail) {
+      return res.status(403).json({ message: "Not allowed" });
+    }
+
+    await prisma.$transaction([
+      prisma.recruitmentVacancy.deleteMany({
+        where: { projectId: id }
+      }),
+      prisma.recruitmentVacancy.createMany({
+        data: vacancies.map((v) => ({
+          position: v.position,
+          count: parseInt(v.count),
+          basicSalary: parseFloat(v.basicSalary),
+          hraPercent: parseFloat(v.hraPercent),
+          projectId: id,
+        })),
+      }),
+      prisma.project.update({
+        where: { id },
+        data: { status: "SAVED" }
+      })
+    ]);
+
+    res.json({ success: true, message: "Recruitment details saved" });
 
   } catch (err) {
     console.error(err);
