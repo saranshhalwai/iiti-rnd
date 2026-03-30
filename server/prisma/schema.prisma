@@ -28,7 +28,7 @@ model Project {
   fundingAgency   String
   projectDuration String
   hodEmail        String
-  deanEmail       String
+  // deanEmail       String
   status          ProjectStatus @default(SAVED)
   user            User @relation(fields: [userEmail], references: [email])
   forms           StaffRecruitmentForm[]
@@ -82,5 +82,5 @@ model DepartmentAuthority {
   id          String @id @default(uuid())
   dept_name   String @unique
   hod_email   String
-  dean_email  String
+  // dean_email  String
 }

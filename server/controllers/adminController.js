@@ -7,40 +7,26 @@ router.get("/department-authority/suggest", async (req, res) => {
   try {
     const { role, q } = req.query
 
-    if (!role || !["HOD", "DEAN"].includes(role)) {
+    if (!role || role !== "HOD") {
       return res.status(400).json({
         success: false,
-        message: "role must be HOD or DEAN",
+        message: "role must be HOD",
       })
     }
 
-    const whereClause =
-      role === "HOD"
-        ? q
-          ? { hod_email: { contains: q, mode: "insensitive" } }
-          : {}
-        : q
-        ? { dean_email: { contains: q, mode: "insensitive" } }
-        : {}
+    const whereClause = q
+      ? { hod_email: { contains: q, mode: "insensitive" } }
+      : {}
 
-    const results =
-      role === "HOD"
-        ? await prisma.departmentAuthority.findMany({
-            where: whereClause,
-            select: { hod_email: true },
-            orderBy: { hod_email: "asc" },
-          })
-        : await prisma.departmentAuthority.findMany({
-            where: whereClause,
-            select: { dean_email: true },
-            orderBy: { dean_email: "asc" },
-          })
+    const results = await prisma.departmentAuthority.findMany({
+      where: whereClause,
+      select: { hod_email: true },
+      orderBy: { hod_email: "asc" },
+    })
 
     res.json({
       success: true,
-      emails: [...new Set(results.map(r =>
-        role === "HOD" ? r.hod_email : r.dean_email
-      ))],
+      emails: [...new Set(results.map(r => r.hod_email))],
     })
   } catch (err) {
     console.error(err)
@@ -50,12 +36,12 @@ router.get("/department-authority/suggest", async (req, res) => {
 
 router.post("/department-authority/create", async (req, res) => {
   try {
-    const { dept_name, hod_email, dean_email } = req.body
+    const { dept_name, hod_email } = req.body
 
-    if (!dept_name || !hod_email || !dean_email) {
+    if (!dept_name || !hod_email) {
       return res.status(400).json({
         success: false,
-        message: "dept_name, hod_email and dean_email are required",
+        message: "dept_name and hod_email are required",
       })
     }
 
@@ -71,7 +57,7 @@ router.post("/department-authority/create", async (req, res) => {
     }
 
     const authority = await prisma.departmentAuthority.create({
-      data: { dept_name, hod_email, dean_email },
+      data: { dept_name, hod_email },
     })
 
     res.status(201).json({ success: true, authority })
@@ -84,12 +70,12 @@ router.post("/department-authority/create", async (req, res) => {
 router.put("/department-authority/edit/:dept_name", async (req, res) => {
   try {
     const { dept_name } = req.params
-    const { hod_email, dean_email } = req.body
+    const { hod_email } = req.body
 
-    if (!hod_email && !dean_email) {
+    if (!hod_email) {
       return res.status(400).json({
         success: false,
-        message: "At least one field required",
+        message: "hod_email field required",
       })
     }
 
@@ -108,7 +94,6 @@ router.put("/department-authority/edit/:dept_name", async (req, res) => {
       where: { dept_name },
       data: {
         hod_email: hod_email ?? existing.hod_email,
-        dean_email: dean_email ?? existing.dean_email,
       },
     })
 

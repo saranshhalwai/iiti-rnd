@@ -5,24 +5,20 @@ import { apiLink } from "../lib/api"
 type Dept = {
   dept_name: string
   hod_email: string
-  dean_email: string
 }
 
 const AdminDeptHeadMails = () => {
   const [departments, setDepartments] = useState<Dept[]>([])
   const [loading, setLoading] = useState(false)
   const [allHods, setAllHods] = useState<string[]>([])
-  const [allDeans, setAllDeans] = useState<string[]>([])
   const [editingDept, setEditingDept] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({
     hod_email: "",
-    dean_email: "",
   })
 
   const [addForm, setAddForm] = useState({
     dept_name: "",
     hod_email: "",
-    dean_email: "",
   })
 
   const fetchDepartments = async () => {
@@ -61,8 +57,8 @@ const AdminDeptHeadMails = () => {
   }
 
   const addDepartment = async () => {
-    const { dept_name, hod_email, dean_email } = addForm
-    if (!dept_name || !hod_email || !dean_email) {
+    const { dept_name, hod_email } = addForm
+    if (!dept_name || !hod_email) {
       alert("All fields required")
       return
     }
@@ -77,7 +73,7 @@ const AdminDeptHeadMails = () => {
       }
     )
 
-    setAddForm({ dept_name: "", hod_email: "", dean_email: "" })
+    setAddForm({ dept_name: "", hod_email: ""})
     fetchDepartments()
   }
 
@@ -105,13 +101,12 @@ const AdminDeptHeadMails = () => {
           Edit Department Head Emails
         </h1>
 
-        {/* Add Department */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-10">
           <h2 className="text-lg font-semibold text-slate-700 mb-4">
             Add Department
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input
               placeholder="Department"
               className="border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
@@ -128,14 +123,6 @@ const AdminDeptHeadMails = () => {
                 setAddForm(f => ({ ...f, hod_email: e.target.value }))
               }
             />
-            <input
-              placeholder="Dean Email"
-              className="border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-              value={addForm.dean_email}
-              onChange={e =>
-                setAddForm(f => ({ ...f, dean_email: e.target.value }))
-              }
-            />
           </div>
 
           <button
@@ -146,7 +133,6 @@ const AdminDeptHeadMails = () => {
           </button>
         </div>
 
-        {/* Department List */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
           <h2 className="text-lg font-semibold text-slate-700 mb-6">
             Department Head Emails
@@ -177,16 +163,6 @@ const AdminDeptHeadMails = () => {
                           }))
                         }
                       />
-                      <input
-                        className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                        value={editForm.dean_email}
-                        onChange={e =>
-                          setEditForm(f => ({
-                            ...f,
-                            dean_email: e.target.value,
-                          }))
-                        }
-                      />
 
                       <div className="flex gap-3">
                         <button
@@ -208,16 +184,12 @@ const AdminDeptHeadMails = () => {
                       <div>
                         <b>HOD:</b> {d.hod_email}
                       </div>
-                      <div>
-                        <b>Dean:</b> {d.dean_email}
-                      </div>
                       <div className="mt-4 flex gap-4">
                       <button
                         onClick={() => {
                           setEditingDept(d.dept_name)
                           setEditForm({
                             hod_email: d.hod_email,
-                            dean_email: d.dean_email,
                           })
                         }}
                         className="text-blue-600 hover:underline font-medium"

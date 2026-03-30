@@ -139,8 +139,8 @@ router.post("/add", async (req, res) => {
         message: "Access denied. Admins only.",
       })
     }
-    const { userEmail, title, fundingAgency, projectDuration, hodEmail, deanEmail} = req.body
-    if (!userEmail || !title || !fundingAgency || !projectDuration || !hodEmail || !deanEmail || !decoded.email) {
+    const { userEmail, title, fundingAgency, projectDuration, hodEmail} = req.body
+    if (!userEmail || !title || !fundingAgency || !projectDuration || !hodEmail || !decoded.email) {
       return res.status(400).json({
         success: false,
         message:
@@ -155,7 +155,6 @@ router.post("/add", async (req, res) => {
         fundingAgency,
         projectDuration,
         hodEmail,
-        deanEmail,
         adminEmail: decoded.email,
         status: "SAVED",
       },
