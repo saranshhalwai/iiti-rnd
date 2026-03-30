@@ -31,7 +31,6 @@ export default function Project() {
 
   const [project, setProject] = useState<ProjectType | null>(null)
   const [loading, setLoading] = useState(true)
-  const [resubmitting, setResubmitting] = useState(false)
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -55,31 +54,6 @@ export default function Project() {
     fetchProject()
   }, [id, navigate])
 
-  const handleResubmit = async () => {
-    if (!project || !id) return;
-    setResubmitting(true);
-    try {
-      const res = await fetch(`${apiLink}/api/project/${id}/resubmit`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (res.ok) {
-        // Refresh project data
-        const refresh = await fetch(`${apiLink}/api/project/${id}`, {
-          credentials: "include",
-        });
-        const data = await refresh.json();
-        setProject(data);
-      } else {
-        alert("Failed to resubmit project.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Error resubmitting project.");
-    } finally {
-      setResubmitting(false);
-    }
-  };
 
   if (loading) return <div className="text-center text-gray-500 mt-10">Loading...</div>
 
@@ -109,35 +83,23 @@ export default function Project() {
                 </p>
               </div>
             </div>
-            <div className="text-sm text-gray-500 font-mono bg-gray-100 px-3 py-1 rounded">
-              ID: {project.id.slice(0, 8)}...
-            </div>
           </div>
         </div>
 
         {isRejected && (
-          <div className="bg-red-50 border-l-4 border-red-500 rounded-r-xl p-5 mb-6 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h3 className="text-red-800 font-bold flex items-center gap-2 text-lg">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                Project Rejected
-              </h3>
-              <p className="text-red-700 mt-2 text-sm">
-                <strong>Reason:</strong> {latestRejectionLog?.comment || "No specific reason provided."}
-              </p>
-              <p className="text-red-600 mt-1 text-xs">
-                You can review your details and resubmit the project for approval.
-              </p>
-            </div>
-            <button 
-              onClick={handleResubmit}
-              disabled={resubmitting}
-              className="whitespace-nowrap bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-5 rounded-lg transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {resubmitting ? "Resubmitting..." : "Resubmit Project"}
-            </button>
+          <div className="bg-red-50 border-l-4 border-red-500 rounded-r-xl p-5 mb-6 shadow-sm">
+            <h3 className="text-red-800 font-bold flex items-center gap-2 text-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              Project Rejected
+            </h3>
+            <p className="text-red-700 mt-2 text-sm">
+              <strong>Reason:</strong> {latestRejectionLog?.comment || "No specific reason provided."}
+            </p>
+            <p className="text-red-600 mt-1 text-xs">
+              Please use the <strong>Staff Recruitment</strong> tab below to edit your committee details and resubmit.
+            </p>
           </div>
         )}
 

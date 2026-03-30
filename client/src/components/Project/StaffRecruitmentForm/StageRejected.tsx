@@ -7,9 +7,10 @@ interface StageRejectedProps {
     members: string[];
   };
   reason?: string;
+  onEdit?: () => void;
 }
 
-export default function StageRejected({ level, uploadedData, reason }: StageRejectedProps) {
+export default function StageRejected({ level, uploadedData, reason, onEdit }: StageRejectedProps) {
   const { chair, members } = uploadedData;
 
   const color = level === "HOD" ? "red" : "orange";
@@ -58,6 +59,17 @@ export default function StageRejected({ level, uploadedData, reason }: StageReje
       </div>
 
       <p className="text-sm text-gray-500">You may update and resubmit the committee.</p>
+
+      {onEdit && (
+        <button
+          onClick={onEdit}
+          className={`mt-2 w-full py-2.5 px-4 rounded-lg font-semibold text-white transition-colors ${
+            level === "HOD" ? "bg-red-600 hover:bg-red-700" : "bg-orange-500 hover:bg-orange-600"
+          }`}
+        >
+          ✏️ Edit Committee & Resubmit
+        </button>
+      )}
     </div>
   );
 }
