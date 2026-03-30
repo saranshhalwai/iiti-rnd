@@ -44,8 +44,7 @@ const createSubmitterUpdateEmail = (project, decision, hodComment = null) => {
     },</p>
             <p>${message}</p>
             <hr style="border: 0; border-top: 1px solid #f0f0f0; margin: 25px 0;">
-            <h3 style="margin-top: 0; color: ${color}; font-size: 18px;">Project Details (ID: ${project.id
-    })</h3>
+            <h3 style="margin-top: 0; color: ${color}; font-size: 18px;">Project Details</h3>
             <ul style="list-style: none; padding: 15px 20px; margin: 0 0 20px 0; background-color: ${background}; border-radius: 8px; border-left: 5px solid ${color};">
               <li style="margin-bottom: 8px;"><strong>Title:</strong> ${project.title
     }</li>
@@ -74,7 +73,7 @@ const createDeanNotificationEmail = (project) => {
             <p style="margin-bottom: 20px;">Dear Dean RND,</p>
             <p>A project has been successfully confirmed by the Head of Department and is now pending your final review and decision.</p>
             <hr style="border: 0; border-top: 1px solid #f0f0f0; margin: 25px 0;">
-            <h3 style="margin-top: 0; color: #1D4ED8; font-size: 18px;">Project Summary (ID: ${project.id})</h3>
+            <h3 style="margin-top: 0; color: #1D4ED8; font-size: 18px;">Project Summary</h3>
             <ul style="list-style: none; padding: 15px 20px; margin: 0 0 20px 0; background-color: #EFF6FF; border-radius: 8px; border-left: 5px solid #60A5FA;">
               <li style="margin-bottom: 8px;"><strong>Title:</strong> ${project.title}</li>
               <li style="margin-bottom: 8px;"><strong>Submitted By:</strong> ${project.userEmail}</li>
@@ -108,7 +107,7 @@ const createDeanNotificationEmail = (project) => {
   `;
 };
 
-const createFinalDecisionEmail = (project, decision) => {
+const createFinalDecisionEmail = (project, decision, deanComment = null) => {
   const isApproved = decision === "APPROVED";
   const color = isApproved ? "#10B981" : "#EF4444";
   const tag = isApproved ? "Approved by Dean" : "Rejected by Dean";
@@ -116,6 +115,10 @@ const createFinalDecisionEmail = (project, decision) => {
   const message = isApproved
     ? "Good news! Your project has been APPROVED by the Dean (R&D)."
     : "We regret to inform you that your project has been REJECTED at the Dean (R&D) level.";
+
+  const commentBlock = deanComment
+    ? `<li style="margin-bottom: 0;"><strong>Dean Comment:</strong> <span style="color: #374151;">${deanComment}</span></li>`
+    : "";
 
   return `
     <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
@@ -127,13 +130,13 @@ const createFinalDecisionEmail = (project, decision) => {
     },</p>
             <p>${message}</p>
             <hr style="border: 0; border-top: 1px solid #f0f0f0; margin: 25px 0;">
-            <h3 style="margin-top: 0; color: ${color}; font-size: 18px;">Project Details (ID: ${project.id
-    })</h3>
+            <h3 style="margin-top: 0; color: ${color}; font-size: 18px;">Project Details</h3>
             <ul style="list-style: none; padding: 15px 20px; margin: 0 0 20px 0; background-color: ${background}; border-radius: 8px; border-left: 5px solid ${color};">
               <li style="margin-bottom: 8px;"><strong>Title:</strong> ${project.title
     }</li>
               <li style="margin-bottom: 8px;"><strong>Final Status:</strong> <span style="font-weight: bold; color: ${color};">${project.status
     }</span></li>
+              ${commentBlock}
             </ul>
             <p style="font-size: 0.9em; color: #777; text-align: center;">Thank you for using the R&D Portal.</p>
         </div>
@@ -150,8 +153,6 @@ mailRouter.post("/hod-confirmation", async (req, res) => {
     });
   }
 
-  const hodEmail = HOD_EMAILS[dept.toLowerCase()] || HOD_EMAILS.default;
-
   try {
     const projectDetails = await prisma.project.findUnique({
       where: { id: projId },
@@ -161,6 +162,11 @@ mailRouter.post("/hod-confirmation", async (req, res) => {
       return res
         .status(400)
         .json({ error: "Project with given ID does not exist." });
+    }
+
+    const hodEmail = projectDetails.hodEmail;
+    if (!hodEmail) {
+      return res.status(400).json({ error: "No HOD email found for this project." });
     }
 
     const form = await prisma.staffRecruitmentForm.findFirst({
@@ -212,7 +218,7 @@ mailRouter.post("/hod-confirmation", async (req, res) => {
 
             <hr style="border: 0; border-top: 1px solid #f0f0f0; margin: 25px 0;">
 
-            <h3 style="margin-top: 0; color: #10B981; font-size: 18px;">Project Summary (ID: ${projId})</h3>
+            <h3 style="margin-top: 0; color: #10B981; font-size: 18px;">Project Summary</h3>
 
             <ul style="list-style: none; padding: 15px 20px; margin: 0 0 20px 0; background-color: #f0fdf4; border-radius: 8px; border-left: 5px solid #34D399;">
               <li style="margin-bottom: 8px;"><strong>Title:</strong> ${confirmationDetails.title}</li>
@@ -271,9 +277,13 @@ mailRouter.post("/hod-confirmation", async (req, res) => {
 /**
  * STEP 2: HOD ACCEPTS
  * Flow:
- *  - Serve a comment form; actual processing happens in POST /hod-decision/accept
+ *  - Immediately processes the acceptance without a comment form.
+ *  - Project & Form: PENDING_HOD -> CONFIRMED_HOD -> PENDING_DEAN
+ *  - Log entry
+ *  - Send Dean email
+ *  - Send submitter email
  */
-mailRouter.get("/hod-decision/accept", (req, res) => {
+mailRouter.get("/hod-decision/accept", async (req, res) => {
   const projId = req.query.projId;
 
   if (!projId) {
@@ -286,69 +296,22 @@ mailRouter.get("/hod-decision/accept", (req, res) => {
  `);
   }
 
-  res.send(`
- <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: Arial, sans-serif;">
- <div style="max-width: 500px; margin: 40px auto; padding: 30px; background-color: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); border-top: 5px solid #10B981;">
-   <h1 style="color: #10B981; text-align: center; font-size: 2em; margin-bottom: 5px;">✅ Accept Project</h1>
-   <p style="text-align: center; color: #555; margin-bottom: 25px;">Project ID: <strong>${projId}</strong></p>
-   <p style="color: #374151; margin-bottom: 8px; font-weight: bold;">Comment <span style="color:#EF4444;">*</span></p>
-   <p style="color: #6B7280; font-size: 0.9em; margin: 0 0 10px 0;">A comment is required before your decision can be recorded.</p>
-   <form method="POST" action="/api/mail/hod-decision/accept">
-     <input type="hidden" name="projId" value="${projId}" />
-     <textarea name="hodComment" rows="5" required placeholder="Enter your acceptance remarks here…"
-       style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #D1D5DB; border-radius: 6px; font-size: 0.95em; resize: vertical; font-family: Arial, sans-serif;"></textarea>
-     <button type="submit"
-       style="margin-top: 18px; width: 100%; padding: 12px; background-color: #059669; color: white; border: none; border-radius: 6px; font-size: 1em; font-weight: bold; cursor: pointer;">
-       &#10003; Confirm Acceptance
-     </button>
-   </form>
- </div>
- </body>
- `);
-});
-
-/**
- * STEP 2: HOD ACCEPTS — processes the decision after comment form is submitted
- * Flow:
- *  - Project & Form: PENDING_HOD -> CONFIRMED_HOD -> PENDING_DEAN
- *  - Log entry with comment
- *  - Send Dean email
- *  - Send submitter email (status will be PENDING_DEAN)
- */
-mailRouter.post("/hod-decision/accept", async (req, res) => {
-  const { projId, hodComment } = req.body;
-
-  if (!projId) {
-    return res.status(400).send(`
- <div style="font-family: Arial, sans-serif; text-align: center; padding: 30px; max-width: 400px; margin: 40px auto; background-color: #fff; border-radius: 8px; border: 1px solid #F59E0B; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);">
- <h1 style="color: #F59E0B; font-size: 1.8em;">URL Error</h1>
- <p style="font-size: 1em; color: #333;">The request URL is incomplete or corrupted.</p>
- <p style="font-size: 0.9em; color: #777;">Missing projId parameter.</p>
- </div>
- `);
-  }
-
-  if (!hodComment || !hodComment.trim()) {
-    return res.status(400).send(`
- <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: Arial, sans-serif;">
- <div style="max-width: 500px; margin: 40px auto; padding: 30px; background-color: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); text-align: center; border-top: 5px solid #F59E0B;">
-   <h1 style="color: #F59E0B; font-size: 2em;">⚠️ Comment Required</h1>
-   <p style="color: #333;">A comment is mandatory before your decision can be recorded.</p>
-   <a href="/api/mail/hod-decision/accept?projId=${projId}"
-      style="display:inline-block; margin-top:15px; padding: 10px 20px; background-color: #059669; color: white; border-radius: 6px; text-decoration: none; font-weight: bold;">
-     ← Go Back
-   </a>
- </div>
- </body>
- `);
-  }
-
   try {
+    const project = await prisma.project.findUnique({ where: { id: projId } });
+    if (!project || project.status !== "PENDING_HOD") {
+      return res.status(400).send(`
+ <div style="font-family: Arial, sans-serif; text-align: center; padding: 30px; max-width: 400px; margin: 40px auto; background-color: #fff; border-radius: 8px; border: 1px solid #F59E0B; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);">
+ <h1 style="color: #F59E0B; font-size: 1.8em;">Link Expired</h1>
+ <p style="font-size: 1em; color: #333;">This decision link is no longer valid or has already been processed.</p>
+ </div>
+      `);
+    }
+
     const form = await prisma.staffRecruitmentForm.findFirst({
       where: { projectId: projId },
     });
 
-    // 1) Set CONFIRMED_HOD and log with comment
+    // 1) Set CONFIRMED_HOD and log
     const confirmedProject = await prisma.project.update({
       where: { id: projId },
       data: {
@@ -356,7 +319,7 @@ mailRouter.post("/hod-decision/accept", async (req, res) => {
         logs: {
           create: {
             action: "CONFIRMED_HOD",
-            comment: hodComment.trim(),
+            comment: "HOD approved the project.",
           },
         },
       },
@@ -369,10 +332,10 @@ mailRouter.post("/hod-decision/accept", async (req, res) => {
       });
     }
 
-    // 2) Send email to Dean (using CONFIRMED_HOD status)
+    // 2) Send email to Dean (using adminEmail from DB)
     const deanMailOptions = {
       from: `"Department System" <${transporter.options.auth.user}>`,
-      to: DEAN_RND_EMAIL,
+      to: confirmedProject.adminEmail,
       subject: `[ACTION REQUIRED] Project HOD Confirmed: ${confirmedProject.title}`,
       html: createDeanNotificationEmail(confirmedProject),
     };
@@ -391,12 +354,12 @@ mailRouter.post("/hod-decision/accept", async (req, res) => {
       });
     }
 
-    // 4) Send email to submitter (shows status PENDING_DEAN, includes comment)
+    // 4) Send email to submitter
     const submitterMailOptions = {
       from: `"Department System" <${transporter.options.auth.user}>`,
       to: pendingDeanProject.userEmail,
       subject: `Project Status Update: HOD Accepted - ${pendingDeanProject.title}`,
-      html: createSubmitterUpdateEmail(pendingDeanProject, "ACCEPTED", hodComment.trim()),
+      html: createSubmitterUpdateEmail(pendingDeanProject, "ACCEPTED", null),
     };
     await transporter.sendMail(submitterMailOptions);
 
@@ -407,7 +370,7 @@ mailRouter.post("/hod-decision/accept", async (req, res) => {
 <p style="font-size: 1.1em; color: #333; margin-top: 0;">The project decision has been successfully recorded.</p>
 
 <div style="background-color: #f0fdf4; padding: 15px; border-radius: 6px; margin: 20px 0;">
-<p style="font-size: 1.3em; font-weight: bold; color: #065F46; margin: 0;">Project ID: ${projId}</p>
+<p style="font-size: 1.3em; font-weight: bold; color: #065F46; margin: 0;">Project Name: ${project.title}</p>
 <p style="color: #4CAF50; font-size: 1.1em; margin: 5px 0 0 0;">Status: HOD CONFIRMED & PENDING DEAN</p>
 </div>
 
@@ -446,7 +409,7 @@ Please try again later. If the issue persists, contact IT support and provide th
  * Flow:
  *  - Serve a comment form; actual processing happens in POST /hod-decision/reject
  */
-mailRouter.get("/hod-decision/reject", (req, res) => {
+mailRouter.get("/hod-decision/reject", async (req, res) => {
   const projId = req.query.projId;
 
   if (!projId) {
@@ -459,11 +422,22 @@ mailRouter.get("/hod-decision/reject", (req, res) => {
  `);
   }
 
-  res.send(`
+  try {
+    const project = await prisma.project.findUnique({ where: { id: projId } });
+    if (!project || project.status !== "PENDING_HOD") {
+      return res.status(400).send(`
+ <div style="font-family: Arial, sans-serif; text-align: center; padding: 30px; max-width: 400px; margin: 40px auto; background-color: #fff; border-radius: 8px; border: 1px solid #F59E0B; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);">
+ <h1 style="color: #F59E0B; font-size: 1.8em;">Link Expired</h1>
+ <p style="font-size: 1em; color: #333;">This decision link is no longer valid or has already been processed.</p>
+ </div>
+      `);
+    }
+
+    res.send(`
  <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: Arial, sans-serif;">
  <div style="max-width: 500px; margin: 40px auto; padding: 30px; background-color: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); border-top: 5px solid #EF4444;">
    <h1 style="color: #EF4444; text-align: center; font-size: 2em; margin-bottom: 5px;">🛑 Reject Project</h1>
-   <p style="text-align: center; color: #555; margin-bottom: 25px;">Project ID: <strong>${projId}</strong></p>
+   <p style="text-align: center; color: #555; margin-bottom: 25px;">Project Name: <strong>${project.title}</strong></p>
    <p style="color: #374151; margin-bottom: 8px; font-weight: bold;">Reason for Rejection <span style="color:#EF4444;">*</span></p>
    <p style="color: #6B7280; font-size: 0.9em; margin: 0 0 10px 0;">A comment is required before your decision can be recorded.</p>
    <form method="POST" action="/api/mail/hod-decision/reject">
@@ -478,6 +452,9 @@ mailRouter.get("/hod-decision/reject", (req, res) => {
  </div>
  </body>
  `);
+  } catch (err) {
+    res.status(500).send("Server Error");
+  }
 });
 
 /**
@@ -516,6 +493,16 @@ mailRouter.post("/hod-decision/reject", async (req, res) => {
   }
 
   try {
+    const project = await prisma.project.findUnique({ where: { id: projId } });
+    if (!project || project.status !== "PENDING_HOD") {
+      return res.status(400).send(`
+ <div style="font-family: Arial, sans-serif; text-align: center; padding: 30px; max-width: 400px; margin: 40px auto; background-color: #fff; border-radius: 8px; border: 1px solid #F59E0B; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);">
+ <h1 style="color: #F59E0B; font-size: 1.8em;">Link Expired</h1>
+ <p style="font-size: 1em; color: #333;">This decision link is no longer valid or has already been processed.</p>
+ </div>
+      `);
+    }
+
     const form = await prisma.staffRecruitmentForm.findFirst({
       where: { projectId: projId },
     });
@@ -523,7 +510,7 @@ mailRouter.post("/hod-decision/reject", async (req, res) => {
     const updatedProject = await prisma.project.update({
       where: { id: projId },
       data: {
-        status: "SAVED", // Reset to square 0
+        status: "REJECTED_HOD", 
         logs: {
           create: {
             action: "REJECTED_HOD",
@@ -536,7 +523,7 @@ mailRouter.post("/hod-decision/reject", async (req, res) => {
     if (form) {
       await prisma.staffRecruitmentForm.update({
         where: { id: form.id },
-        data: { status: "SAVED" }, // Reset form as well
+        data: { status: "REJECTED_HOD" }, 
       });
     }
 
@@ -555,7 +542,7 @@ mailRouter.post("/hod-decision/reject", async (req, res) => {
 <p style="font-size: 1.1em; color: #333; margin-top: 0;">The project decision has been successfully recorded.</p>
 
 <div style="background-color: #fef2f2; padding: 15px; border-radius: 6px; margin: 20px 0;">
- <p style="font-size: 1.3em; font-weight: bold; color: #991B1B; margin: 0;">Project ID: ${projId}</p>
+ <p style="font-size: 1.3em; font-weight: bold; color: #991B1B; margin: 0;">Project Name: ${project.title}</p>
  <p style="color: #EF4444; font-size: 1.1em; margin: 5px 0 0 0;">Status: HOD REJECTED</p>
 </div>
 
@@ -640,7 +627,7 @@ mailRouter.get("/dean-decision/accept", async (req, res) => {
 <p style="font-size: 1.1em; color: #333; margin-top: 0;">The final project decision has been successfully recorded.</p>
 
 <div style="background-color: #f0fdf4; padding: 15px; border-radius: 6px; margin: 20px 0;">
-<p style="font-size: 1.3em; font-weight: bold; color: #065F46; margin: 0;">Project ID: ${projId}</p>
+<p style="font-size: 1.3em; font-weight: bold; color: #065F46; margin: 0;">Project Name: ${project.title}</p>
 <p style="color: #4CAF50; font-size: 1.1em; margin: 5px 0 0 0;">Status: APPROVED</p>
 </div>
 
@@ -694,6 +681,79 @@ mailRouter.get("/dean-decision/reject", async (req, res) => {
   }
 
   try {
+    const project = await prisma.project.findUnique({ where: { id: projId } });
+    if (!project || project.status !== "PENDING_DEAN") {
+      return res.status(400).send(`
+ <div style="font-family: Arial, sans-serif; text-align: center; padding: 30px; max-width: 400px; margin: 40px auto; background-color: #fff; border-radius: 8px; border: 1px solid #F59E0B; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);">
+ <h1 style="color: #F59E0B; font-size: 1.8em;">Link Expired</h1>
+ <p style="font-size: 1em; color: #333;">This decision link is no longer valid or has already been processed.</p>
+ </div>
+      `);
+    }
+
+    res.send(`
+ <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: Arial, sans-serif;">
+ <div style="max-width: 500px; margin: 40px auto; padding: 30px; background-color: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); border-top: 5px solid #EF4444;">
+   <h1 style="color: #EF4444; text-align: center; font-size: 2em; margin-bottom: 5px;">🛑 Reject Project</h1>
+   <p style="text-align: center; color: #555; margin-bottom: 25px;">Project Name: <strong>${project.title}</strong></p>
+   <p style="color: #374151; margin-bottom: 8px; font-weight: bold;">Reason for Rejection <span style="color:#EF4444;">*</span></p>
+   <p style="color: #6B7280; font-size: 0.9em; margin: 0 0 10px 0;">A comment is required before your decision can be recorded.</p>
+   <form method="POST" action="/api/mail/dean-decision/reject">
+     <input type="hidden" name="projId" value="${projId}" />
+     <textarea name="deanComment" rows="5" required placeholder="Enter your rejection reason here…"
+       style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #D1D5DB; border-radius: 6px; font-size: 0.95em; resize: vertical; font-family: Arial, sans-serif;"></textarea>
+     <button type="submit"
+       style="margin-top: 18px; width: 100%; padding: 12px; background-color: #EF4444; color: white; border: none; border-radius: 6px; font-size: 1em; font-weight: bold; cursor: pointer;">
+       &#10007; Confirm Rejection
+     </button>
+   </form>
+ </div>
+ </body>
+ `);
+  } catch (error) {
+    res.status(500).send("Server Error");
+  }
+});
+
+mailRouter.post("/dean-decision/reject", async (req, res) => {
+  const { projId, deanComment } = req.body;
+
+  if (!projId) {
+    return res.status(400).send(`
+ <div style="font-family: Arial, sans-serif; text-align: center; padding: 30px; max-width: 400px; margin: 40px auto; background-color: #fff; border-radius: 8px; border: 1px solid #F59E0B; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);">
+ <h1 style="color: #F59E0B; font-size: 1.8em;">URL Error</h1>
+ <p style="font-size: 1em; color: #333;">The request URL is incomplete or corrupted.</p>
+ <p style="font-size: 0.9em; color: #777;">Missing projId parameter.</p>
+ </div>
+ `);
+  }
+
+  if (!deanComment || !deanComment.trim()) {
+    return res.status(400).send(`
+ <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: Arial, sans-serif;">
+ <div style="max-width: 500px; margin: 40px auto; padding: 30px; background-color: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); text-align: center; border-top: 5px solid #F59E0B;">
+   <h1 style="color: #F59E0B; font-size: 2em;">⚠️ Comment Required</h1>
+   <p style="color: #333;">A comment is mandatory before your decision can be recorded.</p>
+   <a href="/api/mail/dean-decision/reject?projId=${projId}"
+      style="display:inline-block; margin-top:15px; padding: 10px 20px; background-color: #EF4444; color: white; border-radius: 6px; text-decoration: none; font-weight: bold;">
+     ← Go Back
+   </a>
+ </div>
+ </body>
+ `);
+  }
+
+  try {
+    const project = await prisma.project.findUnique({ where: { id: projId } });
+    if (!project || project.status !== "PENDING_DEAN") {
+      return res.status(400).send(`
+ <div style="font-family: Arial, sans-serif; text-align: center; padding: 30px; max-width: 400px; margin: 40px auto; background-color: #fff; border-radius: 8px; border: 1px solid #F59E0B; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);">
+ <h1 style="color: #F59E0B; font-size: 1.8em;">Link Expired</h1>
+ <p style="font-size: 1em; color: #333;">This decision link is no longer valid or has already been processed.</p>
+ </div>
+      `);
+    }
+
     const form = await prisma.staffRecruitmentForm.findFirst({
       where: { projectId: projId },
     });
@@ -701,10 +761,11 @@ mailRouter.get("/dean-decision/reject", async (req, res) => {
     const rejectedProject = await prisma.project.update({
       where: { id: projId },
       data: {
-        status: "SAVED", // Reset to square 0
+        status: "REJECTED_DEAN",
         logs: {
           create: {
-            action: "REJECTED_DEAN"
+            action: "REJECTED_DEAN",
+            comment: deanComment.trim(),
           }
         }
       },
@@ -713,7 +774,7 @@ mailRouter.get("/dean-decision/reject", async (req, res) => {
     if (form) {
       await prisma.staffRecruitmentForm.update({
         where: { id: form.id },
-        data: { status: "SAVED" }, // Reset form
+        data: { status: "REJECTED_DEAN" },
       });
     }
 
@@ -721,7 +782,7 @@ mailRouter.get("/dean-decision/reject", async (req, res) => {
       from: `"Department System" <${transporter.options.auth.user}>`,
       to: rejectedProject.userEmail,
       subject: `Final Project Decision: Rejected by Dean - ${rejectedProject.title}`,
-      html: createFinalDecisionEmail(rejectedProject, "REJECTED"),
+      html: createFinalDecisionEmail(rejectedProject, "REJECTED", deanComment.trim()),
     };
     await transporter.sendMail(submitterMailOptions);
 
@@ -732,7 +793,7 @@ mailRouter.get("/dean-decision/reject", async (req, res) => {
 <p style="font-size: 1.1em; color: #333; margin-top: 0;">The final project decision has been successfully recorded.</p>
 
 <div style="background-color: #fef2f2; padding: 15px; border-radius: 6px; margin: 20px 0;">
- <p style="font-size: 1.3em; font-weight: bold; color: #991B1B; margin: 0;">Project ID: ${projId}</p>
+ <p style="font-size: 1.3em; font-weight: bold; color: #991B1B; margin: 0;">Project Name: ${rejectedProject.title}</p>
  <p style="color: #EF4444; font-size: 1.1em; margin: 5px 0 0 0;">Status: REJECTED_DEAN</p>
 </div>
 
@@ -787,7 +848,7 @@ mailRouter.post("/dean-retry", async (req, res) => {
     // Attempt sending email
     await transporter.sendMail({
       from: `"Department System" <${transporter.options.auth.user}>`,
-      to: DEAN_RND_EMAIL,
+      to: project.adminEmail,
       subject: `[ACTION REQUIRED] Project HOD Confirmed: ${project.title}`,
       html: createDeanNotificationEmail(project),
     });

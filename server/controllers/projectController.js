@@ -7,20 +7,20 @@ router.get("/all-projects", async (req, res) => {
   const token = req.cookies.adKey;
 
   if (!token)
-    return res.status(401).json({success: false, message: "No token"});
+    return res.status(401).json({ success: false, message: "No token" });
 
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
   if (!decoded.id)
     return res
-        .status(403)
-        .json({ success: false, message: "Access denied. Admins only." });
+      .status(403)
+      .json({ success: false, message: "Access denied. Admins only." });
 
   try {
     const projects = await prisma.project.findMany({
       include: { forms: false, user: true },
     });
-    res.json({success: true, projects: projects});
+    res.json({ success: true, projects: projects });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Server error" });
@@ -66,7 +66,7 @@ router.get("/:id", async (req, res) => {
 
   const project = await prisma.project.findUnique({
     where: { id },
-    include: { user: true },
+    include: { user: true, logs: true },
   });
 
   if (!project || project.userEmail !== userEmail)
@@ -84,7 +84,7 @@ router.post("/:id/staffRecruitmentForm", verifyUser, async (req, res) => {
     if (!chair || !Array.isArray(members))
       return res.status(400).json({ message: "Chair + Members required" });
 
-    const project = await prisma.project.findUnique({ where: { id }});
+    const project = await prisma.project.findUnique({ where: { id } });
     if (!project || project.userEmail !== userEmail)
       return res.status(403).json({ message: "Not allowed" });
 
@@ -182,12 +182,12 @@ router.post("/add", async (req, res) => {
         message: "Access denied. Admins only.",
       })
     }
-    const { userEmail, title, fundingAgency, projectDuration, hodEmail, deanEmail} = req.body
-    if (!userEmail || !title || !fundingAgency || !projectDuration || !hodEmail || !deanEmail || !decoded.email) {
+    const { userEmail, title, fundingAgency, projectDuration, hodEmail } = req.body
+    if (!userEmail || !title || !fundingAgency || !projectDuration || !hodEmail) {
       return res.status(400).json({
         success: false,
         message:
-          "userEmail, title, fundingAgency, projectDuration, hodEmail and deanEmail are required",
+          "userEmail, title, fundingAgency, projectDuration, and hodEmail are required",
       })
     }
 
@@ -198,7 +198,6 @@ router.post("/add", async (req, res) => {
         fundingAgency,
         projectDuration,
         hodEmail,
-        deanEmail,
         adminEmail: decoded.email,
         status: "SAVED",
       },
@@ -239,6 +238,50 @@ router.get("/:id/staffRecruitmentForm", verifyUser, async (req, res) => {
       status: form.status
     });
 
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.post("/:id/resubmit", verifyUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userEmail = req.user.email;
+
+    const project = await prisma.project.findUnique({
+      where: { id }
+    });
+
+    if (!project || project.userEmail !== userEmail) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    if (project.status !== "REJECTED_HOD" && project.status !== "REJECTED_DEAN") {
+      return res.status(400).json({ message: "Project must be rejected to resubmit." });
+    }
+
+    // Determine target status. If rejected by Dean, resubmit goes back to pending_dean? Or back to pending_hod?
+    // "resubmit directly to PENDING_HOD"
+    await prisma.$transaction([
+      prisma.project.update({
+        where: { id },
+        data: { status: "PENDING_HOD" },
+      }),
+      prisma.staffRecruitmentForm.updateMany({
+        where: { projectId: id },
+        data: { status: "PENDING_HOD" },
+      }),
+      prisma.projectLog.create({
+        data: {
+          projectId: id,
+          action: "RESUBMITTED",
+          comment: "PI has resubmitted the project."
+        }
+      })
+    ]);
+
+    res.json({ success: true, message: "Project resubmitted successfully." });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });

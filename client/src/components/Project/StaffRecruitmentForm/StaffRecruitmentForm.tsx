@@ -169,6 +169,7 @@ const submitCommittee = async () => {
           level="HOD"
           uploadedData={committeeData}
           reason={rejectionReason}
+          onEdit={() => setStage("form")}
         />
       )}
 
@@ -189,6 +190,7 @@ const submitCommittee = async () => {
           level="DEAN"
           uploadedData={committeeData}
           reason={rejectionReason}
+          onEdit={() => setStage("form")}
         />
       )}
 

@@ -41,6 +41,12 @@ build/Release
 node_modules/
 jspm_packages/
 
+#prisma
+# Prisma migrations
+server/prisma/migrations/
+# Prisma generated client
+node_modules/.prisma/
+
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
 
