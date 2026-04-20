@@ -28,7 +28,8 @@ model Project {
   fundingAgency   String
   projectDuration String
   hodEmail        String
-  // deanEmail       String
+  hodRemark      String?
+  deanRemark     String?
   status          ProjectStatus @default(SAVED)
   user            User @relation(fields: [userEmail], references: [email])
   forms           StaffRecruitmentForm[]
@@ -90,6 +91,7 @@ enum ProjectStatus {
   PENDING_DEAN
   REJECTED_DEAN
   APPROVED
+  RECRUITMENT_VACANCY
 }
 
 model DepartmentAuthority {
@@ -97,4 +99,13 @@ model DepartmentAuthority {
   dept_name   String @unique
   hod_email   String
   // dean_email  String
+}
+
+model DecisionToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  projId    String
+  action    String   // "ACCEPT" | "REJECT"
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
 }

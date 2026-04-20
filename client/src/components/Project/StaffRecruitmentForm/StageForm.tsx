@@ -19,7 +19,8 @@ export default function StageForm({ members, setMembers, onSubmit, chair, setCha
   };
 
   const removeMember = (i: number) => {
-    setMembers(members.filter((_, idx) => idx !== i));
+    const updated = members.filter((_, idx) => idx !== i);
+    setMembers(updated.length === 0 ? [""] : updated);
   };
 
   return (
@@ -37,7 +38,7 @@ export default function StageForm({ members, setMembers, onSubmit, chair, setCha
       </div>
       <div className="space-y-3">
         <label className="block font-semibold text-gray-700">Committee Members</label>
-        {members.map((m, i) => (
+        {(members.length === 0 ? [""] : members).map((m, i) => (
           <div key={i} className="flex items-center gap-2">
             <input
               type="text"
@@ -68,7 +69,13 @@ export default function StageForm({ members, setMembers, onSubmit, chair, setCha
       </div>
 
       <button
-        onClick={() => setShowConfirm(true)}
+       onClick={() => {
+          if (!chair.trim()) {
+            alert("Chairperson is required");
+            return;
+          }
+          setShowConfirm(true);
+        }}
         className="max-w-md w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold"
       >
         Review & Submit
@@ -88,9 +95,13 @@ export default function StageForm({ members, setMembers, onSubmit, chair, setCha
               <div>
                 <p className="text-gray-500 text-sm font-medium">Members</p>
                 <ul className="pl-4 list-disc text-gray-700 font-medium">
-                  {members.map((m, i) => (
-                    <li key={i}>{m || "Unnamed Member"}</li>
-                  ))}
+                  {members.filter(m => m.trim() !== "").length === 0 ? (
+                    <li>No members added</li>
+                  ) : (
+                    members
+                      .filter(m => m.trim() !== "")
+                      .map((m, i) => <li key={i}>{m}</li>)
+                  )}
                 </ul>
               </div>
             </div>

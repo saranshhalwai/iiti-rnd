@@ -49,7 +49,6 @@ export default function StaffRecruitmentForm({ projectId }: StaffRecruitmentForm
   const [stage, setStage] = useState<Stage>("loading");
   const [sendingMail, setSendingMail] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
-
   useEffect(() => {
     const f = async () => {
       try {
@@ -79,7 +78,7 @@ const triggerHOD = async () => {
   setSendingMail(true);
 
   try {
-    const r = await api.post(`/api/mail/hod-confirmation`, {
+    const r = await api.post(`/api/mail/hod/confirmation`, {
       dept: "cse",
       projId: projectId
     });
@@ -101,9 +100,10 @@ const triggerHOD = async () => {
 
 const submitCommittee = async () => {
   try {
+    const cleanMembers = members.filter(m => m.trim() !== "");
     const r = await api.post(
       `/api/project/${projectId}/staffRecruitmentForm`,
-      { chair, members }
+      { chair, members: cleanMembers }
     );
 
     if (r.status === 200) {
@@ -169,7 +169,22 @@ const submitCommittee = async () => {
           level="HOD"
           uploadedData={committeeData}
           reason={rejectionReason}
-          onEdit={() => setStage("form")}
+          onEdit={async () => {
+            console.log(5)
+            try {
+              await api.post(`/api/project/restart`, {
+                projId: projectId
+              });
+
+              setChair("");
+              setMembers([""]);
+              setCommitteeData(null);
+              setRejectionReason("");
+              setStage("form");
+            } catch (err) {
+              console.error("Restart failed", err);
+            }
+          }}
         />
       )}
 

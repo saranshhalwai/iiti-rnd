@@ -40,7 +40,7 @@ export default function StageRejected({ level, uploadedData, reason, onEdit }: S
         
         <div>
           <h3 className={`font-semibold text-${color}-700 mb-1`}>Chairperson</h3>
-          <p className="text-gray-800 font-medium pl-1 bg-white/70 p-2 rounded-md inline-block min-w-[200px]">
+          <p className="text-gray-800 font-medium pl-1 p-2 rounded-md inline-block min-w-[200px]">
             {chair}
           </p>
         </div>
@@ -59,15 +59,14 @@ export default function StageRejected({ level, uploadedData, reason, onEdit }: S
       </div>
 
       <p className="text-sm text-gray-500">You may update and resubmit the committee.</p>
-
       {onEdit && (
         <button
           onClick={onEdit}
-          className={`mt-2 w-full py-2.5 px-4 rounded-lg font-semibold text-white transition-colors ${
+          className={`mt-3 inline-block py-2 px-10 rounded-lg font-semibold text-white transition-colors ${
             level === "HOD" ? "bg-red-600 hover:bg-red-700" : "bg-orange-500 hover:bg-orange-600"
           }`}
         >
-          ✏️ Edit Committee & Resubmit
+          Edit Committee & Resubmit
         </button>
       )}
     </div>

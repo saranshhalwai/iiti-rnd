@@ -154,7 +154,7 @@ router.post("/:id/recruitmentVacancies", verifyUser, async (req, res) => {
       }),
       prisma.project.update({
         where: { id },
-        data: { status: "SAVED" }
+        data: { status: "RECRUITMENT_VACANCY" }
       })
     ]);
 
@@ -225,17 +225,31 @@ router.get("/:id/staffRecruitmentForm", verifyUser, async (req, res) => {
     const project = await prisma.project.findUnique({
       where: { id }
     });
-    if (!project || project.userEmail !== userEmail)
+
+    if (!project || project.userEmail !== userEmail) {
       return res.status(403).json({ message: "Unauthorized" });
+    }
 
     const form = await prisma.staffRecruitmentForm.findFirst({
       where: { projectId: id }
     });
-    if (!form)
+
+    if (!form) {
       return res.status(404).json({ message: "Form not submitted" });
-    res.json({
+    }
+
+    let reason = "";
+
+    if (project.status === "REJECTED_HOD") {
+      reason = project.hodRemark || "";
+    } else if (project.status === "REJECTED_DEAN") {
+      reason = project.deanRemark || "";
+    }
+
+    return res.json({
       selectionCommittee: form.selectionCommittee,
-      status: form.status
+      status: project.status,
+      reason
     });
 
   } catch (err) {
@@ -287,5 +301,53 @@ router.post("/:id/resubmit", verifyUser, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+router.post("/restart", async (req, res) => {
+  const { projId } = req.body;
+
+  if (!projId) return res.status(400).json({ error: "Missing projId" });
+
+  try {
+    const form = await prisma.staffRecruitmentForm.findFirst({
+      where: { projectId: projId },
+    });
+
+    await prisma.project.update({
+      where: { id: projId },
+      data: {
+        status: "SAVED",
+        hodRemark: null,
+        deanRemark: null,
+        logs: {
+          create: {
+            action: "RESTARTED",
+            comment: "User restarted submission after rejection",
+          },
+        },
+      },
+    });
+
+    if (form) {
+      await prisma.staffRecruitmentForm.update({
+        where: { id: form.id },
+        data: {
+          status: "SAVED",
+          selectionCommittee: {},
+        },
+      });
+    }
+
+    await prisma.decisionToken.deleteMany({
+      where: { projId },
+    });
+
+    return res.json({ success: true });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false });
+  }
+});
+
 
 export default router;

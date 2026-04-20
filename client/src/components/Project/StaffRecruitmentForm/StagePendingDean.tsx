@@ -22,7 +22,7 @@ export default function StagePendingDean({ uploadedData, projId, showRetry = fal
     setRetryMessage("");
 
     try {
-      const res = await api.post(`/api/mail/dean-retry`, {
+      const res = await api.post(`/api/mail/dean/retry`, {
         projId,
       });
 
